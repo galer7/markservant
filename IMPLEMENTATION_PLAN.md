@@ -10,8 +10,9 @@ Build `msv` - a CLI tool to manage multiple markserv instances with persistence.
 - **Language**: JavaScript (ESM)
 - **Dependencies**:
   - `commander` - CLI argument parsing
-  - `chalk` - Terminal colors (optional)
-  - No other runtime deps needed
+  - `chalk` - Terminal colors
+- **Dev Dependencies**:
+  - `vitest` - Testing framework
 
 ## Project Structure
 
@@ -33,51 +34,55 @@ markservant/
 │   │   ├── process.js      # Start/stop markserv processes
 │   │   ├── launchagent.js  # Install/remove LaunchAgent
 │   │   └── paths.js        # Path normalization
-│   └── index.js
 ├── specs/                  # Specification docs
 ├── package.json
 ├── README.md
 └── .gitignore
 ```
 
-## Implementation Steps
+## Implementation Status
 
-### Phase 1: Project Setup
-1. Initialize package.json with ESM (`"type": "module"`)
-2. Add bin entry pointing to `bin/msv.js`
-3. Create .gitignore
-4. Install dev dependencies
+### Phase 1: Project Setup ✅ COMPLETED
+- [x] Initialize package.json with ESM (`"type": "module"`)
+- [x] Add bin entry pointing to `bin/msv.js`
+- [x] Create .gitignore
+- [x] Install dev dependencies
 
-### Phase 2: Core Library
-1. `src/lib/paths.js` - Path normalization utilities
-2. `src/lib/config.js` - Config file CRUD operations
-3. `src/lib/ports.js` - Port allocation (random in 9000-9999, check availability)
-4. `src/lib/process.js` - Spawn/kill markserv processes
-5. `src/lib/launchagent.js` - LaunchAgent plist management
+### Phase 2: Core Library ✅ COMPLETED
+- [x] `src/lib/paths.js` - Path normalization utilities
+- [x] `src/lib/config.js` - Config file CRUD operations
+- [x] `src/lib/ports.js` - Port allocation (random in 9000-9999, check availability)
+- [x] `src/lib/process.js` - Spawn/kill markserv processes
+- [x] `src/lib/launchagent.js` - LaunchAgent plist management
 
-### Phase 3: Commands
-1. `msv add` - Add directory, allocate port, start server, open Edge
-2. `msv list` - Display all servers with status
-3. `msv rm` - Remove directory, stop server
-4. `msv open` - Open URL in Edge
-5. `msv start` - Start all servers in watch list
-6. `msv stop` - Stop all running servers
+### Phase 3: Commands ✅ COMPLETED
+- [x] `msv add` - Add directory, allocate port, start server, open Edge
+- [x] `msv list` - Display all servers with status
+- [x] `msv rm` - Remove directory, stop server
+- [x] `msv open` - Open URL in Edge
+- [x] `msv start` - Start all servers in watch list
+- [x] `msv stop` - Stop all running servers
 
-### Phase 4: CLI Wiring
-1. Create `bin/msv.js` with shebang
-2. Wire up commander with all commands
-3. Add help text and version
+### Phase 4: CLI Wiring ✅ COMPLETED
+- [x] Create `bin/msv.js` with shebang
+- [x] Wire up commander with all commands
+- [x] Add help text and version
 
-### Phase 5: Installation & Testing
-1. Test local install with `npm link`
-2. Verify commands work
-3. Test LaunchAgent persistence (logout/login)
-4. Create README with usage instructions
+### Phase 5: Testing ✅ COMPLETED
+- [x] Unit tests for paths.js (20 tests)
+- [x] Unit tests for config.js (31 tests)
+- [x] Unit tests for ports.js (9 tests)
+- [x] Unit tests for process.js (18 tests)
+- [x] All 78 tests passing
 
-### Phase 6: Publish
-1. Create GitHub repo (public)
-2. Push code
-3. `npm publish` (optional, can just use `npm install -g github:galer7/markservant`)
+### Phase 6: Installation & Manual Testing
+- [ ] Test local install with `npm link`
+- [ ] Verify commands work end-to-end
+- [ ] Test LaunchAgent persistence (logout/login)
+
+### Phase 7: Publish
+- [ ] Push code to GitHub
+- [ ] `npm publish` (optional, can just use `npm install -g github:galer7/markservant`)
 
 ## Key Implementation Details
 
