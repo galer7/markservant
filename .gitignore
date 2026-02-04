@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 *.log
+
+# Development helper scripts
+PROMPT.md
+ralph.sh
