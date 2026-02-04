@@ -27,6 +27,7 @@ const {
   removeServer,
   updateServerPid,
   getAllServers,
+  clearAllServers,
 } = await import('./config.js');
 
 describe('config.js', () => {
@@ -458,6 +459,46 @@ describe('config.js', () => {
         pid: 12345,
       });
       expect(servers[0].addedAt).toBeDefined();
+    });
+  });
+
+  describe('clearAllServers', () => {
+    it('removes all servers from config', async () => {
+      // Add multiple servers
+      await addServer('/server/one', 3001);
+      await addServer('/server/two', 3002);
+      await addServer('/server/three', 3003);
+
+      // Verify they exist
+      let servers = await getAllServers();
+      expect(servers).toHaveLength(3);
+
+      // Clear all
+      await clearAllServers();
+
+      // Verify all are gone
+      servers = await getAllServers();
+      expect(servers).toHaveLength(0);
+    });
+
+    it('works when no servers exist', async () => {
+      // Should not throw even if there are no servers
+      await clearAllServers();
+
+      const servers = await getAllServers();
+      expect(servers).toHaveLength(0);
+    });
+
+    it('persists the cleared state to disk', async () => {
+      // Add a server first
+      await addServer('/server/path', 9000);
+
+      // Clear all
+      await clearAllServers();
+
+      // Reload config to verify persistence
+      const config = await loadConfig();
+      expect(config.servers).toHaveLength(0);
     });
   });
 });

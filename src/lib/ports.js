@@ -25,11 +25,11 @@ export function isPortFree(port) {
 /**
  * Allocates a random available port in the configured range.
  * Avoids ports already assigned to other servers and ports currently in use.
- * @returns {number} An available port number.
+ * @returns {Promise<number>} An available port number.
  * @throws {Error} If no available port can be found after 100 attempts.
  */
-export function allocatePort() {
-  const config = loadConfig();
+export async function allocatePort() {
+  const config = await loadConfig();
   const assignedPorts = new Set(config.servers.map((server) => server.port));
 
   const maxAttempts = 100;

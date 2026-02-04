@@ -56,21 +56,21 @@ describe('ports', () => {
   });
 
   describe('allocatePort', () => {
-    it('returns a port in the valid range', () => {
-      loadConfig.mockReturnValue({ servers: [] });
+    it('returns a port in the valid range', async () => {
+      loadConfig.mockResolvedValue({ servers: [] });
       execSync.mockImplementation(() => {
         throw new Error('lsof: no process found');
       });
 
-      const port = allocatePort();
+      const port = await allocatePort();
 
       expect(port).toBeGreaterThanOrEqual(PORT_RANGE.min);
       expect(port).toBeLessThanOrEqual(PORT_RANGE.max);
     });
 
-    it('does not return ports already assigned in config', () => {
+    it('does not return ports already assigned in config', async () => {
       const assignedPorts = [9000, 9001, 9002, 9003, 9004];
-      loadConfig.mockReturnValue({
+      loadConfig.mockResolvedValue({
         servers: assignedPorts.map((port) => ({ port })),
       });
       execSync.mockImplementation(() => {
@@ -79,15 +79,15 @@ describe('ports', () => {
 
       // Run multiple times to increase confidence
       for (let i = 0; i < 50; i++) {
-        const port = allocatePort();
+        const port = await allocatePort();
         expect(assignedPorts).not.toContain(port);
         expect(port).toBeGreaterThanOrEqual(PORT_RANGE.min);
         expect(port).toBeLessThanOrEqual(PORT_RANGE.max);
       }
     });
 
-    it('skips ports that are in use on the system', () => {
-      loadConfig.mockReturnValue({ servers: [] });
+    it('skips ports that are in use on the system', async () => {
+      loadConfig.mockResolvedValue({ servers: [] });
 
       let callCount = 0;
       execSync.mockImplementation(() => {
@@ -99,21 +99,21 @@ describe('ports', () => {
         throw new Error('lsof: no process found');
       });
 
-      const port = allocatePort();
+      const port = await allocatePort();
 
       expect(port).toBeGreaterThanOrEqual(PORT_RANGE.min);
       expect(port).toBeLessThanOrEqual(PORT_RANGE.max);
       expect(callCount).toBeGreaterThanOrEqual(5);
     });
 
-    it('throws error after too many attempts when all ports are in use', () => {
-      loadConfig.mockReturnValue({ servers: [] });
+    it('throws error after too many attempts when all ports are in use', async () => {
+      loadConfig.mockResolvedValue({ servers: [] });
       // Always indicate port is in use
       execSync.mockImplementation(() => {
         return Buffer.from('node    12345 user   22u  IPv4');
       });
 
-      expect(() => allocatePort()).toThrow(
+      await expect(allocatePort()).rejects.toThrow(
         'Failed to allocate an available port after 100 attempts. ' +
           `All ports in range ${PORT_RANGE.min}-${PORT_RANGE.max} may be in use.`
       );
@@ -121,7 +121,7 @@ describe('ports', () => {
       expect(execSync).toHaveBeenCalledTimes(100);
     });
 
-    it('throws error after too many attempts when all generated ports are assigned', () => {
+    it('throws error after too many attempts when all generated ports are assigned', async () => {
       // Create a set of ports that will be returned by Math.random
       const mockPorts = [9100, 9101, 9102];
       let portIndex = 0;
@@ -136,7 +136,7 @@ describe('ports', () => {
       });
 
       // All mock ports are assigned in config
-      loadConfig.mockReturnValue({
+      loadConfig.mockResolvedValue({
         servers: mockPorts.map((port) => ({ port })),
       });
 
@@ -145,7 +145,7 @@ describe('ports', () => {
         throw new Error('lsof: no process found');
       });
 
-      expect(() => allocatePort()).toThrow(
+      await expect(allocatePort()).rejects.toThrow(
         'Failed to allocate an available port after 100 attempts.'
       );
 

@@ -26,6 +26,7 @@ program
 program
   .command('rm [directory]')
   .description('Remove a directory from the watch list')
+  .option('-a, --all', 'Remove all servers from the watch list')
   .action(rmCommand);
 
 program

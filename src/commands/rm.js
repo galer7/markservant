@@ -1,16 +1,64 @@
 import chalk from 'chalk';
 import { normalizePath } from '../lib/paths.js';
-import { findServer, removeServer, getAllServers } from '../lib/config.js';
+import { findServer, removeServer, getAllServers, clearAllServers } from '../lib/config.js';
 import { stopServer } from '../lib/process.js';
 import { uninstallLaunchAgent, isLaunchAgentInstalled } from '../lib/launchagent.js';
+
+/**
+ * Removes all servers from the watch list and stops them.
+ * Used by `msv rm --all`.
+ * @returns {Promise<void>}
+ */
+async function removeAllServers() {
+  const servers = await getAllServers();
+
+  if (servers.length === 0) {
+    console.log(chalk.yellow('No servers in watch list.'));
+    return;
+  }
+
+  // Stop all running servers
+  let stoppedCount = 0;
+  for (const server of servers) {
+    if (server.pid !== null) {
+      const stopped = stopServer(server.pid);
+      if (stopped) {
+        stoppedCount++;
+      }
+    }
+  }
+
+  if (stoppedCount > 0) {
+    console.log(chalk.yellow(`Stopped ${stoppedCount} server(s)`));
+  }
+
+  // Clear all servers from config
+  await clearAllServers();
+
+  // Uninstall LaunchAgent
+  if (isLaunchAgentInstalled()) {
+    uninstallLaunchAgent();
+    console.log(chalk.yellow('Uninstalled LaunchAgent'));
+  }
+
+  console.log(chalk.green(`Removed ${servers.length} server(s) from watch list.`));
+}
 
 /**
  * Handles the `msv rm [directory]` command.
  * Removes a directory from the watch list and stops its server if running.
  * @param {string} [directory] - The directory to remove. Defaults to current working directory.
+ * @param {object} options - Command options.
+ * @param {boolean} [options.all] - If true, remove all servers.
  * @returns {Promise<void>}
  */
-export default async function rmCommand(directory) {
+export default async function rmCommand(directory, options = {}) {
+  // Handle --all flag
+  if (options.all) {
+    await removeAllServers();
+    return;
+  }
+
   // Normalize the directory path (default to cwd if not provided)
   let normalizedPath;
   try {

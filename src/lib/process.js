@@ -11,6 +11,7 @@ const exec = promisify(execCallback);
  */
 export function startServer(directory, port) {
   const child = spawn('markserv', [directory, '-p', String(port)], {
+    cwd: '/',
     detached: true,
     stdio: 'ignore',
   });

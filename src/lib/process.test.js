@@ -27,6 +27,7 @@ describe('process.js', () => {
         'markserv',
         ['/path/to/directory', '-p', '8080'],
         {
+          cwd: '/',
           detached: true,
           stdio: 'ignore',
         }

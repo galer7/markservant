@@ -243,3 +243,11 @@ export async function getAllServers() {
   const config = await loadConfig();
   return config.servers;
 }
+
+/**
+ * Removes all server entries from the config.
+ * @returns {Promise<void>}
+ */
+export async function clearAllServers() {
+  await saveConfig({ servers: [] });
+}

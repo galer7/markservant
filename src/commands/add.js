@@ -41,7 +41,7 @@ export default async function addCommand(directory) {
     // Step 3: Allocate a new port
     let port;
     try {
-      port = allocatePort();
+      port = await allocatePort();
     } catch (error) {
       console.error(chalk.red(`Error allocating port: ${error.message}`));
       process.exit(1);
