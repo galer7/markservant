@@ -86,9 +86,9 @@ markservant/
 - Fixed `allocatePort()` to be async (was calling async `loadConfig()` synchronously)
 - Fixed `startServer()` to set `cwd: '/'` to prevent markserv from interpreting absolute paths as relative
 
-### Phase 7: Publish
-- [ ] Push code to GitHub
-- [ ] `npm publish` (optional, can just use `npm install -g github:galer7/markservant`)
+### Phase 7: Publish ✅ COMPLETED
+- [x] Push code to GitHub
+- [x] `npm publish` (optional, can install via `npm install -g github:galer7/markservant`)
 
 ## Key Implementation Details
 
