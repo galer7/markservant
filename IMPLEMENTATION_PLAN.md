@@ -74,8 +74,14 @@ markservant/
 - [x] Unit tests for config.js (34 tests)
 - [x] Unit tests for ports.js (9 tests)
 - [x] Unit tests for process.js (18 tests)
+- [x] Unit tests for launchagent.js (21 tests)
+- [x] Unit tests for add command (25 tests)
 - [x] Unit tests for rm command (13 tests)
-- [x] All 94 tests passing
+- [x] Unit tests for list command (14 tests)
+- [x] Unit tests for open command (16 tests)
+- [x] Unit tests for start command (19 tests)
+- [x] Unit tests for stop command (12 tests)
+- [x] All 201 tests passing
 
 ### Phase 6: Installation & Manual Testing ✅ COMPLETED
 - [x] Test local install with `npm link`
