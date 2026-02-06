@@ -10,11 +10,19 @@ const exec = promisify(execCallback);
  * @returns {number} The PID of the spawned process
  */
 export function startServer(directory, port) {
-  const child = spawn('markserv', [directory, '-p', String(port)], {
-    cwd: '/',
-    detached: true,
-    stdio: 'ignore',
-  });
+  // Calculate a unique livereload port based on the main port to avoid conflicts
+  // when running multiple markserv instances
+  const livereloadPort = port + 10000;
+
+  const child = spawn(
+    'markserv',
+    [directory, '-p', String(port), '--livereloadport', String(livereloadPort)],
+    {
+      cwd: '/',
+      detached: true,
+      stdio: 'ignore',
+    }
+  );
 
   child.unref();
 
