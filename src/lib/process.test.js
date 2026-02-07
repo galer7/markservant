@@ -25,7 +25,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/path/to/directory', '-p', '8080', '--livereloadport', '18080'],
+        ['/path/to/directory', '-p', '8080', '--livereloadport', '18080', '--no-browser'],
         {
           cwd: '/',
           detached: true,
@@ -77,7 +77,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/dir', '-p', '9999', '--livereloadport', '19999'],
+        ['/dir', '-p', '9999', '--livereloadport', '19999', '--no-browser'],
         expect.any(Object)
       );
     });
@@ -93,7 +93,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--dotfiles', 'allow'],
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser', '--dotfiles', 'allow'],
         expect.any(Object)
       );
     });
@@ -109,7 +109,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000'],
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
         expect.any(Object)
       );
     });
@@ -125,7 +125,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000'],
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
         expect.any(Object)
       );
     });

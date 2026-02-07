@@ -16,7 +16,7 @@ export function startServer(directory, port, options = {}) {
   // when running multiple markserv instances
   const livereloadPort = port + 10000;
 
-  const args = [directory, '-p', String(port), '--livereloadport', String(livereloadPort)];
+  const args = [directory, '-p', String(port), '--livereloadport', String(livereloadPort), '--no-browser'];
 
   if (options.dotfiles) {
     args.push('--dotfiles', 'allow');
