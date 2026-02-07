@@ -1,6 +1,7 @@
-import { realpathSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 /**
  * Normalizes a directory path to an absolute path with symlinks resolved.
@@ -22,6 +23,30 @@ export function normalizePath(directory) {
   const normalizedPath = realPath.replace(/\/+$/, "") || "/";
 
   return normalizedPath;
+}
+
+/**
+ * Resolves the appropriate server root directory for a given path.
+ * Uses git root if the path is inside a git repository, otherwise
+ * uses the directory itself (or parent directory for file paths).
+ * @param {string} normalizedPath - Absolute normalized path to a file or directory.
+ * @returns {string} The resolved server root directory.
+ */
+export function resolveServerRoot(normalizedPath) {
+  const startDir = statSync(normalizedPath).isDirectory()
+    ? normalizedPath
+    : dirname(normalizedPath);
+
+  try {
+    const gitRoot = execSync("git rev-parse --show-toplevel", {
+      cwd: startDir,
+      stdio: ["ignore", "pipe", "ignore"],
+      encoding: "utf-8",
+    }).trim();
+    return normalizePath(gitRoot);
+  } catch {
+    return startDir;
+  }
 }
 
 /**

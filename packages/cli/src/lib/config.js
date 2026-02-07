@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { getConfigDir, getConfigPath, normalizePath } from "./paths.js";
 
 /**
@@ -135,6 +135,39 @@ export async function findServer(directory) {
 
   const server = config.servers.find((s) => s.directory === normalizedDir);
   return server || null;
+}
+
+/**
+ * Finds the server whose root directory contains the given path.
+ * If multiple servers match (nested roots), returns the deepest (most specific) match.
+ * @param {string} targetPath - Absolute normalized path to a file or directory.
+ * @returns {Promise<{server: ServerEntry, subpath: string}|null>} The matching server and relative subpath, or null.
+ */
+export async function findServerForPath(targetPath) {
+  const config = await loadConfig();
+
+  let bestMatch = null;
+  let bestMatchLength = 0;
+
+  for (const server of config.servers) {
+    if (targetPath === server.directory) {
+      if (server.directory.length > bestMatchLength) {
+        bestMatch = { server, subpath: "" };
+        bestMatchLength = server.directory.length;
+      }
+      continue;
+    }
+
+    if (targetPath.startsWith(server.directory + sep)) {
+      if (server.directory.length > bestMatchLength) {
+        const subpath = targetPath.slice(server.directory.length + 1);
+        bestMatch = { server, subpath };
+        bestMatchLength = server.directory.length;
+      }
+    }
+  }
+
+  return bestMatch;
 }
 
 /**

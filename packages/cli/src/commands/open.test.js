@@ -16,9 +16,9 @@ vi.mock("../lib/paths.js", async () => {
       if (globalThis.__TEST_THROW_UNEXPECTED__) {
         throw new Error("Unexpected error");
       }
-      // Always return the test normalized path when set, otherwise return the input
       return globalThis.__TEST_NORMALIZED_PATH__ || dir;
     }),
+    resolveServerRoot: vi.fn(),
     getConfigDir: () => globalThis.__TEST_CONFIG_DIR__,
     getConfigPath: () => join(globalThis.__TEST_CONFIG_DIR__, "config.json"),
   };
@@ -26,18 +26,37 @@ vi.mock("../lib/paths.js", async () => {
 
 // Mock config module
 vi.mock("../lib/config.js", () => ({
-  findServer: vi.fn(),
+  findServerForPath: vi.fn(),
+  addServer: vi.fn(),
+  getAllServers: vi.fn(),
+  updateServerPid: vi.fn(),
 }));
 
 // Mock process module
 vi.mock("../lib/process.js", () => ({
   openInEdge: vi.fn(),
+  startServer: vi.fn(),
+}));
+
+// Mock ports module
+vi.mock("../lib/ports.js", () => ({
+  allocatePort: vi.fn(),
+}));
+
+// Mock launchagent module
+vi.mock("../lib/launchagent.js", () => ({
+  installLaunchAgent: vi.fn(),
+  isLaunchAgentInstalled: vi.fn(),
 }));
 
 // Import mocked modules after mocking
-const { normalizePath } = await import("../lib/paths.js");
-const { findServer } = await import("../lib/config.js");
-const { openInEdge } = await import("../lib/process.js");
+const { normalizePath, resolveServerRoot } = await import("../lib/paths.js");
+const { findServerForPath, addServer, getAllServers, updateServerPid } = await import(
+  "../lib/config.js"
+);
+const { openInEdge, startServer } = await import("../lib/process.js");
+const { allocatePort } = await import("../lib/ports.js");
+const { installLaunchAgent, isLaunchAgentInstalled } = await import("../lib/launchagent.js");
 
 // Import the command after all mocks are set up
 const { default: openCommand } = await import("./open.js");
@@ -48,7 +67,6 @@ describe("open command", () => {
   let originalExitCode;
 
   beforeEach(async () => {
-    // Create a unique temp directory for each test
     testConfigDir = join(
       tmpdir(),
       `markservant-open-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -58,25 +76,20 @@ describe("open command", () => {
     globalThis.__TEST_THROW_ENOENT__ = false;
     globalThis.__TEST_THROW_UNEXPECTED__ = false;
 
-    // Clear all mocks
     vi.clearAllMocks();
 
-    // Mock console.log and console.error
     consoleSpy = {
       log: vi.spyOn(console, "log").mockImplementation(() => {}),
       error: vi.spyOn(console, "error").mockImplementation(() => {}),
     };
 
-    // Save original exitCode and reset it
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
 
-    // Ensure config directory exists
     await mkdir(testConfigDir, { recursive: true });
   });
 
   afterEach(async () => {
-    // Clean up the temp directory after each test
     if (existsSync(testConfigDir)) {
       await fsRm(testConfigDir, { recursive: true, force: true });
     }
@@ -85,17 +98,18 @@ describe("open command", () => {
     delete globalThis.__TEST_THROW_ENOENT__;
     delete globalThis.__TEST_THROW_UNEXPECTED__;
 
-    // Restore console
     consoleSpy.log.mockRestore();
     consoleSpy.error.mockRestore();
 
-    // Restore original exitCode
     process.exitCode = originalExitCode;
   });
 
   describe("path normalization", () => {
-    it("normalizes directory path correctly", async () => {
-      findServer.mockResolvedValue({ port: 9000 });
+    it("normalizes path correctly", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand("/some/directory");
@@ -103,8 +117,11 @@ describe("open command", () => {
       expect(normalizePath).toHaveBeenCalledWith("/some/directory");
     });
 
-    it("uses cwd when no directory provided", async () => {
-      findServer.mockResolvedValue({ port: 9000 });
+    it("uses cwd when no path provided", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand();
@@ -113,61 +130,48 @@ describe("open command", () => {
     });
   });
 
-  describe("server not found", () => {
-    it("shows error when directory not in watch list", async () => {
-      globalThis.__TEST_NORMALIZED_PATH__ = "/not/watched";
-      findServer.mockResolvedValue(null);
-
-      await openCommand("/not/watched");
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("Error"),
-        expect.stringContaining("/not/watched"),
-      );
-    });
-
-    it("sets process.exitCode = 1 when not found", async () => {
-      globalThis.__TEST_NORMALIZED_PATH__ = "/not/watched";
-      findServer.mockResolvedValue(null);
-
-      await openCommand("/not/watched");
-
-      expect(process.exitCode).toBe(1);
-    });
-
-    it("shows tip to run msv add first", async () => {
-      globalThis.__TEST_NORMALIZED_PATH__ = "/not/watched";
-      findServer.mockResolvedValue(null);
-
-      await openCommand("/not/watched");
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("Tip"),
-        expect.stringContaining("msv add"),
-      );
-    });
-
-    it("does not call openInEdge when server not found", async () => {
-      findServer.mockResolvedValue(null);
-
-      await openCommand("/not/watched");
-
-      expect(openInEdge).not.toHaveBeenCalled();
-    });
-  });
-
   describe("server found", () => {
-    it("opens correct URL in Edge when found", async () => {
-      findServer.mockResolvedValue({ port: 8080 });
+    it("opens root URL when subpath is empty", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
-      await openCommand("/test/directory");
+      await openCommand("/projects/repo");
 
-      expect(openInEdge).toHaveBeenCalledWith("http://localhost:8080");
+      expect(openInEdge).toHaveBeenCalledWith("http://localhost:9000");
+    });
+
+    it("opens URL with subpath for nested path", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "docs/guide.md",
+      });
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo/docs/guide.md");
+
+      expect(openInEdge).toHaveBeenCalledWith("http://localhost:9000/docs/guide.md");
+    });
+
+    it("encodes special characters in subpath", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "docs/my file.md",
+      });
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo/docs/my file.md");
+
+      expect(openInEdge).toHaveBeenCalledWith("http://localhost:9000/docs/my%20file.md");
     });
 
     it("shows success message after opening", async () => {
-      findServer.mockResolvedValue({ port: 9000 });
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand("/test/directory");
@@ -180,7 +184,10 @@ describe("open command", () => {
     });
 
     it("does not set exitCode on success", async () => {
-      findServer.mockResolvedValue({ port: 9000 });
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand("/test/directory");
@@ -188,16 +195,128 @@ describe("open command", () => {
       expect(process.exitCode).toBeUndefined();
     });
 
-    it("handles different port numbers", async () => {
-      findServer.mockResolvedValue({ port: 3000 });
+    it("does not attempt auto-add when server found", async () => {
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand("/test/directory");
 
-      expect(openInEdge).toHaveBeenCalledWith("http://localhost:3000");
+      expect(resolveServerRoot).not.toHaveBeenCalled();
+      expect(addServer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("auto-add when not found", () => {
+    it("auto-adds server root and opens with subpath", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo/docs/guide.md";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([{ directory: "/projects/repo" }]);
+      isLaunchAgentInstalled.mockReturnValue(true);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo/docs/guide.md");
+
+      expect(addServer).toHaveBeenCalledWith("/projects/repo", 9050);
+      expect(startServer).toHaveBeenCalledWith("/projects/repo", 9050);
+      expect(openInEdge).toHaveBeenCalledWith("http://localhost:9050/docs/guide.md");
+    });
+
+    it("opens root URL when path equals server root", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([{ directory: "/projects/repo" }]);
+      isLaunchAgentInstalled.mockReturnValue(true);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo");
+
+      expect(openInEdge).toHaveBeenCalledWith("http://localhost:9050");
+    });
+
+    it("installs LaunchAgent on first server", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([{ directory: "/projects/repo" }]);
+      isLaunchAgentInstalled.mockReturnValue(false);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo");
+
+      expect(installLaunchAgent).toHaveBeenCalled();
+    });
+
+    it("does not install LaunchAgent when already installed", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([{ directory: "/projects/repo" }]);
+      isLaunchAgentInstalled.mockReturnValue(true);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo");
+
+      expect(installLaunchAgent).not.toHaveBeenCalled();
+    });
+
+    it("does not install LaunchAgent when other servers exist", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([
+        { directory: "/other/server" },
+        { directory: "/projects/repo" },
+      ]);
+      isLaunchAgentInstalled.mockReturnValue(false);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo");
+
+      expect(installLaunchAgent).not.toHaveBeenCalled();
+    });
+
+    it("shows auto-add message", async () => {
+      findServerForPath.mockResolvedValue(null);
+      globalThis.__TEST_NORMALIZED_PATH__ = "/projects/repo";
+      resolveServerRoot.mockReturnValue("/projects/repo");
+      allocatePort.mockResolvedValue(9050);
+      addServer.mockResolvedValue({});
+      startServer.mockReturnValue(12345);
+      updateServerPid.mockResolvedValue(true);
+      getAllServers.mockResolvedValue([{ directory: "/projects/repo" }]);
+      isLaunchAgentInstalled.mockReturnValue(true);
+      openInEdge.mockResolvedValue();
+
+      await openCommand("/projects/repo");
+
       expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining("3000"),
+        expect.stringContaining("Auto-adding"),
+        expect.stringContaining("/projects/repo"),
         expect.anything(),
       );
     });
@@ -216,18 +335,18 @@ describe("open command", () => {
       expect(process.exitCode).toBe(1);
     });
 
-    it("shows the provided directory in ENOENT error message", async () => {
+    it("shows the provided path in ENOENT error message", async () => {
       globalThis.__TEST_THROW_ENOENT__ = true;
 
-      await openCommand("/some/missing/directory");
+      await openCommand("/some/missing/path");
 
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.anything(),
-        expect.stringContaining("/some/missing/directory"),
+        expect.stringContaining("/some/missing/path"),
       );
     });
 
-    it("shows cwd in ENOENT error message when no directory provided", async () => {
+    it("shows cwd in ENOENT error message when no path provided", async () => {
       globalThis.__TEST_THROW_ENOENT__ = true;
       const originalCwd = process.cwd();
 
@@ -254,20 +373,22 @@ describe("open command", () => {
         // Expected to throw
       }
 
-      // exitCode should not be set for unexpected errors (they are re-thrown)
       expect(process.exitCode).toBeUndefined();
     });
   });
 
-  describe("findServer integration", () => {
-    it("calls findServer with normalized path", async () => {
+  describe("findServerForPath integration", () => {
+    it("calls findServerForPath with normalized path", async () => {
       globalThis.__TEST_NORMALIZED_PATH__ = "/normalized/path";
-      findServer.mockResolvedValue({ port: 9000 });
+      findServerForPath.mockResolvedValue({
+        server: { port: 9000 },
+        subpath: "",
+      });
       openInEdge.mockResolvedValue();
 
       await openCommand("/raw/path");
 
-      expect(findServer).toHaveBeenCalledWith("/normalized/path");
+      expect(findServerForPath).toHaveBeenCalledWith("/normalized/path");
     });
   });
 });

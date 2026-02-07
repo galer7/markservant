@@ -23,6 +23,7 @@ const {
   loadConfig,
   saveConfig,
   findServer,
+  findServerForPath,
   addServer,
   removeServer,
   updateServerPid,
@@ -519,6 +520,70 @@ describe("config.js", () => {
         pid: 12345,
       });
       expect(servers[0].addedAt).toBeDefined();
+    });
+  });
+
+  describe("findServerForPath", () => {
+    it("returns match when path equals server root", async () => {
+      await addServer("/projects/repo", 9000);
+
+      const result = await findServerForPath("/projects/repo");
+
+      expect(result).not.toBeNull();
+      expect(result.server.directory).toBe("/projects/repo");
+      expect(result.subpath).toBe("");
+    });
+
+    it("returns match with subpath for nested file", async () => {
+      await addServer("/projects/repo", 9000);
+
+      const result = await findServerForPath("/projects/repo/docs/guide.md");
+
+      expect(result).not.toBeNull();
+      expect(result.server.directory).toBe("/projects/repo");
+      expect(result.subpath).toBe("docs/guide.md");
+    });
+
+    it("returns match with subpath for nested directory", async () => {
+      await addServer("/projects/repo", 9000);
+
+      const result = await findServerForPath("/projects/repo/docs/subfolder");
+
+      expect(result).not.toBeNull();
+      expect(result.subpath).toBe("docs/subfolder");
+    });
+
+    it("returns null when path is not under any server", async () => {
+      await addServer("/projects/repo", 9000);
+
+      const result = await findServerForPath("/other/path");
+
+      expect(result).toBeNull();
+    });
+
+    it("picks deepest match for nested servers", async () => {
+      await addServer("/projects/repo", 9000);
+      await addServer("/projects/repo/docs", 9001);
+
+      const result = await findServerForPath("/projects/repo/docs/guide.md");
+
+      expect(result.server.directory).toBe("/projects/repo/docs");
+      expect(result.server.port).toBe(9001);
+      expect(result.subpath).toBe("guide.md");
+    });
+
+    it("does not match partial directory names", async () => {
+      await addServer("/projects/repo", 9000);
+
+      const result = await findServerForPath("/projects/repo-other/file.md");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when no servers configured", async () => {
+      const result = await findServerForPath("/any/path");
+
+      expect(result).toBeNull();
     });
   });
 

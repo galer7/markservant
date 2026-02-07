@@ -1,51 +1,70 @@
+import { relative } from "node:path";
 import chalk from "chalk";
-import { findServer } from "../lib/config.js";
-import { normalizePath } from "../lib/paths.js";
-import { openInEdge } from "../lib/process.js";
+import { addServer, findServerForPath, getAllServers, updateServerPid } from "../lib/config.js";
+import { installLaunchAgent, isLaunchAgentInstalled } from "../lib/launchagent.js";
+import { normalizePath, resolveServerRoot } from "../lib/paths.js";
+import { allocatePort } from "../lib/ports.js";
+import { openInEdge, startServer } from "../lib/process.js";
 
 /**
- * Open the markserv URL for a directory in Microsoft Edge.
- * @param {string} [directory] - The directory to open. Defaults to current working directory.
+ * Open the markserv URL for a path in Microsoft Edge.
+ * Accepts any file or directory path under a served project.
+ * Auto-adds the server root if not already configured.
+ * @param {string} [targetPath] - The file or directory to open. Defaults to cwd.
  * @returns {Promise<void>}
  */
-export default async function openCommand(directory) {
+export default async function openCommand(targetPath) {
   try {
-    // Normalize the directory path (defaults to cwd if not provided)
-    const normalizedPath = normalizePath(directory);
+    const normalizedPath = normalizePath(targetPath);
 
-    // Find the server in the watch list
-    const server = await findServer(normalizedPath);
+    // Try to find a configured server containing this path
+    const match = await findServerForPath(normalizedPath);
 
-    if (!server) {
-      console.error(
-        chalk.red("Error:"),
-        `Directory not in watch list: ${chalk.cyan(normalizedPath)}`,
-      );
-      console.error(
-        chalk.yellow("Tip:"),
-        `Run ${chalk.cyan("msv add")} first to add this directory.`,
-      );
-      process.exitCode = 1;
+    if (match) {
+      const urlPath = match.subpath
+        ? `/${match.subpath.split("/").map(encodeURIComponent).join("/")}`
+        : "";
+      const url = `http://localhost:${match.server.port}${urlPath}`;
+      await openInEdge(url);
+      console.log(chalk.green("Opened"), chalk.cyan(url), "in Microsoft Edge");
       return;
     }
 
-    // Open the URL in Microsoft Edge
-    const url = `http://localhost:${server.port}`;
+    // No server found - auto-add one
+    const serverRoot = resolveServerRoot(normalizedPath);
+    console.log(chalk.yellow("Auto-adding"), chalk.cyan(serverRoot), "to watch list...");
+
+    const port = await allocatePort();
+    await addServer(serverRoot, port);
+    const pid = startServer(serverRoot, port);
+    await updateServerPid(serverRoot, pid);
+
+    // Install LaunchAgent if this is the first server
+    const allServers = await getAllServers();
+    if (allServers.length === 1 && !isLaunchAgentInstalled()) {
+      try {
+        installLaunchAgent();
+        console.log(chalk.green("Installed LaunchAgent for auto-start on login."));
+      } catch {
+        // Non-fatal - server is running regardless
+      }
+    }
+
+    const subpath = relative(serverRoot, normalizedPath);
+    const urlPath = subpath ? `/${subpath.split("/").map(encodeURIComponent).join("/")}` : "";
+    const url = `http://localhost:${port}${urlPath}`;
     await openInEdge(url);
 
-    console.log(chalk.green("Opened"), chalk.cyan(url), "in Microsoft Edge");
+    console.log(chalk.green("Added and opened"), chalk.cyan(url), "in Microsoft Edge");
   } catch (error) {
-    // Handle path resolution errors (e.g., directory doesn't exist)
     if (error.code === "ENOENT") {
       console.error(
         chalk.red("Error:"),
-        `Directory does not exist: ${chalk.cyan(directory || process.cwd())}`,
+        `Path does not exist: ${chalk.cyan(targetPath || process.cwd())}`,
       );
       process.exitCode = 1;
       return;
     }
-
-    // Re-throw unexpected errors
     throw error;
   }
 }

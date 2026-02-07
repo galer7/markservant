@@ -1,9 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getConfigDir, getConfigPath, getLaunchAgentPath, normalizePath } from "./paths.js";
+import {
+  getConfigDir,
+  getConfigPath,
+  getLaunchAgentPath,
+  normalizePath,
+  resolveServerRoot,
+} from "./paths.js";
 
 // Mock node:fs module
 vi.mock("node:fs", () => ({
   realpathSync: vi.fn(),
+  statSync: vi.fn(),
 }));
 
 // Mock node:os module
@@ -11,7 +18,13 @@ vi.mock("node:os", () => ({
   homedir: vi.fn(),
 }));
 
-import { realpathSync } from "node:fs";
+// Mock node:child_process module
+vi.mock("node:child_process", () => ({
+  execSync: vi.fn(),
+}));
+
+import { execSync } from "node:child_process";
+import { realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 
 describe("normalizePath", () => {
@@ -257,5 +270,67 @@ describe("getLaunchAgentPath", () => {
 
     expect(result).toContain("Library/LaunchAgents");
     expect(result.endsWith("com.markservant.plist")).toBe(true);
+  });
+});
+
+describe("resolveServerRoot", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns git root when path is a directory inside a git repo", () => {
+    statSync.mockReturnValue({ isDirectory: () => true });
+    execSync.mockReturnValue("/projects/repo\n");
+    realpathSync.mockReturnValue("/projects/repo");
+
+    const result = resolveServerRoot("/projects/repo/docs");
+
+    expect(execSync).toHaveBeenCalledWith("git rev-parse --show-toplevel", {
+      cwd: "/projects/repo/docs",
+      stdio: ["ignore", "pipe", "ignore"],
+      encoding: "utf-8",
+    });
+    expect(result).toBe("/projects/repo");
+  });
+
+  it("returns git root when path is a file inside a git repo", () => {
+    statSync.mockReturnValue({ isDirectory: () => false });
+    execSync.mockReturnValue("/projects/repo\n");
+    realpathSync.mockReturnValue("/projects/repo");
+
+    const result = resolveServerRoot("/projects/repo/docs/guide.md");
+
+    expect(execSync).toHaveBeenCalledWith("git rev-parse --show-toplevel", {
+      cwd: "/projects/repo/docs",
+      stdio: ["ignore", "pipe", "ignore"],
+      encoding: "utf-8",
+    });
+    expect(result).toBe("/projects/repo");
+  });
+
+  it("returns the directory itself when not in a git repo", () => {
+    statSync.mockReturnValue({ isDirectory: () => true });
+    execSync.mockImplementation(() => {
+      throw new Error("not a git repository");
+    });
+
+    const result = resolveServerRoot("/tmp/somedir");
+
+    expect(result).toBe("/tmp/somedir");
+  });
+
+  it("returns parent directory for a file not in a git repo", () => {
+    statSync.mockReturnValue({ isDirectory: () => false });
+    execSync.mockImplementation(() => {
+      throw new Error("not a git repository");
+    });
+
+    const result = resolveServerRoot("/tmp/somedir/file.md");
+
+    expect(result).toBe("/tmp/somedir");
   });
 });

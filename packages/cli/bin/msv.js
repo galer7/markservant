@@ -34,8 +34,8 @@ program
 program.command("list").description("Show all watched directories with status").action(listCommand);
 
 program
-  .command("open [directory]")
-  .description("Open the markserv URL in Microsoft Edge")
+  .command("open [path]")
+  .description("Open a file or directory in Microsoft Edge via markserv")
   .action(openCommand);
 
 program.command("start").description("Start all servers in watch list").action(startCommand);
