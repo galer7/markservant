@@ -28,8 +28,24 @@ vi.mock("../lib/docker.js", async () => {
   };
 });
 
-// Import mocked docker functions
+// Mock platform detection — default to Docker (non-Apple-Silicon) for existing tests
+vi.mock("../lib/platform.js", () => ({
+  isAppleSilicon: vi.fn(() => false),
+}));
+
+// Mock MLX module
+vi.mock("../lib/mlx.js", () => ({
+  getMlxServerStatus: vi.fn(),
+  isVenvReady: vi.fn(),
+  setupVenv: vi.fn(),
+  startMlxServer: vi.fn(),
+  stopMlxServer: vi.fn(),
+}));
+
+// Import mocked modules
 const docker = await import("../lib/docker.js");
+const platform = await import("../lib/platform.js");
+const mlx = await import("../lib/mlx.js");
 
 // Import commands after mocking
 const { startTtsServer, stopTtsServer, statusTtsServer, validatePort, validateContainerName } =
@@ -406,6 +422,112 @@ describe("tts-server.js", () => {
 
     it("rejects non-string values", () => {
       expect(() => validateContainerName(123)).toThrow("Must be 1-64 characters");
+    });
+  });
+
+  describe("MLX backend dispatch", () => {
+    beforeEach(() => {
+      // Switch to Apple Silicon for MLX tests
+      platform.isAppleSilicon.mockReturnValue(true);
+    });
+
+    describe("startTtsServer (MLX)", () => {
+      it("dispatches to MLX when on Apple Silicon", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: false, pid: null });
+        mlx.isVenvReady.mockReturnValue(true);
+        mlx.startMlxServer.mockResolvedValue(12345);
+        docker.waitForHealthCheck.mockResolvedValue(true);
+
+        await startTtsServer();
+
+        expect(mockConsoleLog).toHaveBeenCalledWith(
+          expect.stringContaining("Apple Silicon detected"),
+        );
+        expect(mlx.startMlxServer).toHaveBeenCalledWith(8880);
+        // Docker should not be called
+        expect(docker.isDockerAvailable).not.toHaveBeenCalled();
+      });
+
+      it("reports already running when MLX server is running", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: true, pid: 12345 });
+
+        await startTtsServer();
+
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("already running"));
+        expect(mlx.startMlxServer).not.toHaveBeenCalled();
+      });
+
+      it("auto-installs venv when not ready", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: false, pid: null });
+        mlx.isVenvReady.mockReturnValue(false);
+        mlx.setupVenv.mockResolvedValue(undefined);
+        mlx.startMlxServer.mockResolvedValue(12345);
+        docker.waitForHealthCheck.mockResolvedValue(true);
+
+        await startTtsServer();
+
+        expect(mlx.setupVenv).toHaveBeenCalled();
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("First-time setup"));
+      });
+
+      it("exits with error when MLX health check fails", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: false, pid: null });
+        mlx.isVenvReady.mockReturnValue(true);
+        mlx.startMlxServer.mockResolvedValue(12345);
+        docker.waitForHealthCheck.mockResolvedValue(false);
+
+        await expect(startTtsServer()).rejects.toThrow("process.exit called");
+
+        expect(mockProcessExit).toHaveBeenCalledWith(1);
+        expect(mockConsoleError).toHaveBeenCalledWith(
+          expect.stringContaining("failed to become healthy"),
+        );
+      });
+    });
+
+    describe("stopTtsServer (MLX)", () => {
+      it("stops MLX server and reports success", async () => {
+        mlx.stopMlxServer.mockResolvedValue(true);
+
+        await stopTtsServer();
+
+        expect(mlx.stopMlxServer).toHaveBeenCalled();
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("TTS server stopped"));
+        // Docker should not be called
+        expect(docker.stopContainer).not.toHaveBeenCalled();
+      });
+
+      it("reports when MLX server was not running", async () => {
+        mlx.stopMlxServer.mockResolvedValue(false);
+
+        await stopTtsServer();
+
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("was not running"));
+      });
+    });
+
+    describe("statusTtsServer (MLX)", () => {
+      it("shows running MLX server status", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: true, pid: 12345 });
+
+        await statusTtsServer();
+
+        expect(mockConsoleLog).toHaveBeenCalledWith(
+          expect.stringContaining("TTS server is running"),
+        );
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("MLX (Apple Silicon)"));
+        // Docker should not be called
+        expect(docker.isDockerAvailable).not.toHaveBeenCalled();
+      });
+
+      it("shows not running MLX server status", async () => {
+        mlx.getMlxServerStatus.mockResolvedValue({ running: false, pid: null });
+
+        await statusTtsServer();
+
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("not running"));
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining("MLX (Apple Silicon)"));
+      });
     });
   });
 

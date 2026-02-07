@@ -44,17 +44,14 @@ program.command("stop").description("Stop all running markserv instances").actio
 
 const ttsServer = program
   .command("tts-server")
-  .description("Manage the Kokoro TTS Docker container");
+  .description("Manage the Kokoro TTS server (MLX native on Apple Silicon, Docker elsewhere)");
 
 ttsServer
   .command("start")
-  .description("Start the Kokoro TTS server (pulls Docker image on first run)")
+  .description("Start the Kokoro TTS server (auto-detects best backend)")
   .action(startTtsServer);
 
-ttsServer
-  .command("stop")
-  .description("Stop and remove the Kokoro TTS server container")
-  .action(stopTtsServer);
+ttsServer.command("stop").description("Stop the Kokoro TTS server").action(stopTtsServer);
 
 ttsServer
   .command("status")
