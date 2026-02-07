@@ -2,6 +2,9 @@ node_modules/
 .DS_Store
 *.log
 
+# VS Code extension build output
+vscode-extension/dist/
+
 # Development helper scripts
 PROMPT.md
 ralph.sh

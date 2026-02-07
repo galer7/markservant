@@ -1,0 +1,89 @@
+{
+  "name": "markservant-tts",
+  "displayName": "MarkServant TTS",
+  "description": "Read markdown aloud with Kokoro TTS and word-by-word highlighting",
+  "version": "0.1.0",
+  "publisher": "markservant",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "markservant-tts.readAloud",
+        "title": "Read Aloud",
+        "icon": "$(megaphone)",
+        "category": "MarkServant TTS"
+      },
+      {
+        "command": "markservant-tts.stop",
+        "title": "Stop Reading",
+        "icon": "$(debug-stop)",
+        "category": "MarkServant TTS"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "markservant-tts.readAloud",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "markservant-tts.readAloud",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "resourceLangId == markdown"
+      }
+    ],
+    "configuration": {
+      "title": "MarkServant TTS",
+      "properties": {
+        "markservant-tts.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8880",
+          "description": "URL of the Kokoro-FastAPI server"
+        },
+        "markservant-tts.voice": {
+          "type": "string",
+          "default": "af_heart",
+          "description": "Kokoro TTS voice to use"
+        },
+        "markservant-tts.speed": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "description": "Speech speed multiplier"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "vitest": "^1.2.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "unified": "^11.0.0",
+    "remark-parse": "^11.0.0",
+    "unist-util-visit": "^5.0.0"
+  }
+}

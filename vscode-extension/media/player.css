@@ -1,0 +1,190 @@
+/* MarkServant TTS Player – VS Code Webview Styles
+ *
+ * All colors derive from VS Code's CSS custom properties so the panel
+ * automatically follows the active theme (light, dark, or high-contrast).
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Reset & base                                                       */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hidden audio element                                               */
+/* ------------------------------------------------------------------ */
+
+#audio-player {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Player container – centred both axes                               */
+/* ------------------------------------------------------------------ */
+
+.player-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  padding: 24px 16px;
+  gap: 20px;
+  user-select: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Controls row                                                       */
+/* ------------------------------------------------------------------ */
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared button base                                                 */
+/* ------------------------------------------------------------------ */
+
+.controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  outline: none;
+  line-height: 1;
+}
+
+.controls button:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007acc);
+  outline-offset: 2px;
+}
+
+.controls button:active {
+  transform: scale(0.95);
+}
+
+.controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Play / Pause button – primary, large                               */
+/* ------------------------------------------------------------------ */
+
+#play-pause-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 24px;
+}
+
+#play-pause-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Codicon icon inside the button */
+#play-pause-btn .codicon {
+  font-size: 24px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Stop button – secondary, smaller                                   */
+/* ------------------------------------------------------------------ */
+
+#stop-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  font-size: 16px;
+}
+
+#stop-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+#stop-btn .codicon {
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Status text                                                        */
+/* ------------------------------------------------------------------ */
+
+#status {
+  font-size: 13px;
+  color: var(--vscode-editor-foreground);
+  text-align: center;
+  min-height: 1.4em;
+  opacity: 0.9;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Responsive tweaks                                                  */
+/* ------------------------------------------------------------------ */
+
+@media (max-height: 200px) {
+  .player-container {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  #play-pause-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  #play-pause-btn .codicon {
+    font-size: 20px;
+  }
+
+  #stop-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  #stop-btn .codicon {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 180px) {
+  .controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
