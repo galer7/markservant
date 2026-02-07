@@ -21,6 +21,7 @@ program
 program
   .command('add [directory]')
   .description('Add a directory to the watch list and start markserv')
+  .option('--dotfiles', 'Show dotfiles in directory listings')
   .action(addCommand);
 
 program

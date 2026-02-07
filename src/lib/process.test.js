@@ -25,7 +25,7 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/path/to/directory', '-p', '8080'],
+        ['/path/to/directory', '-p', '8080', '--livereloadport', '18080'],
         {
           cwd: '/',
           detached: true,
@@ -77,7 +77,55 @@ describe('process.js', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'markserv',
-        ['/dir', '-p', '9999'],
+        ['/dir', '-p', '9999', '--livereloadport', '19999'],
+        expect.any(Object)
+      );
+    });
+
+    it('adds --dotfiles allow flag when dotfiles option is true', () => {
+      const mockChild = {
+        pid: 12345,
+        unref: vi.fn(),
+      };
+      spawn.mockReturnValue(mockChild);
+
+      startServer('/path/to/dir', 8000, { dotfiles: true });
+
+      expect(spawn).toHaveBeenCalledWith(
+        'markserv',
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--dotfiles', 'allow'],
+        expect.any(Object)
+      );
+    });
+
+    it('does not add --dotfiles flag when dotfiles option is false', () => {
+      const mockChild = {
+        pid: 12345,
+        unref: vi.fn(),
+      };
+      spawn.mockReturnValue(mockChild);
+
+      startServer('/path/to/dir', 8000, { dotfiles: false });
+
+      expect(spawn).toHaveBeenCalledWith(
+        'markserv',
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000'],
+        expect.any(Object)
+      );
+    });
+
+    it('does not add --dotfiles flag when dotfiles option is undefined', () => {
+      const mockChild = {
+        pid: 12345,
+        unref: vi.fn(),
+      };
+      spawn.mockReturnValue(mockChild);
+
+      startServer('/path/to/dir', 8000, {});
+
+      expect(spawn).toHaveBeenCalledWith(
+        'markserv',
+        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000'],
         expect.any(Object)
       );
     });

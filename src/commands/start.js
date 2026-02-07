@@ -35,7 +35,7 @@ export default async function startCommand() {
 
     // Start the server
     try {
-      const newPid = startServer(directory, port);
+      const newPid = startServer(directory, port, { dotfiles: server.dotfiles });
       await updateServerPid(directory, newPid);
 
       const url = `http://localhost:${port}`;

@@ -86,7 +86,7 @@ describe('start command', () => {
 
       await startCommand();
 
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000);
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000, { dotfiles: undefined });
     });
 
     it('starts servers with null PIDs', async () => {
@@ -95,7 +95,7 @@ describe('start command', () => {
 
       await startCommand();
 
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000);
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000, { dotfiles: undefined });
     });
 
     it('updates PID after starting', async () => {
@@ -234,8 +234,8 @@ describe('start command', () => {
       await startCommand();
 
       expect(startServer).toHaveBeenCalledTimes(2);
-      expect(startServer).toHaveBeenCalledWith('/server/one', 9001);
-      expect(startServer).toHaveBeenCalledWith('/server/two', 9002);
+      expect(startServer).toHaveBeenCalledWith('/server/one', 9001, { dotfiles: undefined });
+      expect(startServer).toHaveBeenCalledWith('/server/two', 9002, { dotfiles: undefined });
     });
   });
 
@@ -340,7 +340,7 @@ describe('start command', () => {
       // Should not try to start server/one (already running)
       // Should start server/two (null PID)
       expect(startServer).toHaveBeenCalledTimes(1);
-      expect(startServer).toHaveBeenCalledWith('/server/two', 9002);
+      expect(startServer).toHaveBeenCalledWith('/server/two', 9002, { dotfiles: undefined });
     });
 
     it('starts servers with PIDs of non-running processes', async () => {
@@ -359,7 +359,7 @@ describe('start command', () => {
       await startCommand();
 
       // Should start because process is not running
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000);
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000, { dotfiles: undefined });
     });
   });
 
@@ -375,9 +375,9 @@ describe('start command', () => {
       await startCommand();
 
       expect(startServer).toHaveBeenCalledTimes(3);
-      expect(startServer).toHaveBeenCalledWith('/server/one', 9001);
-      expect(startServer).toHaveBeenCalledWith('/server/two', 9002);
-      expect(startServer).toHaveBeenCalledWith('/server/three', 9003);
+      expect(startServer).toHaveBeenCalledWith('/server/one', 9001, { dotfiles: undefined });
+      expect(startServer).toHaveBeenCalledWith('/server/two', 9002, { dotfiles: undefined });
+      expect(startServer).toHaveBeenCalledWith('/server/three', 9003, { dotfiles: undefined });
     });
 
     it('updates PIDs for all started servers', async () => {
@@ -393,6 +393,37 @@ describe('start command', () => {
       const servers = await getAllServers();
       expect(servers[0].pid).toBe(11111);
       expect(servers[1].pid).toBe(22222);
+    });
+  });
+
+  describe('dotfiles option', () => {
+    it('passes dotfiles option from config to startServer', async () => {
+      await addServer('/test/directory', 9000, { dotfiles: true });
+      startServer.mockReturnValue(12345);
+
+      await startCommand();
+
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000, { dotfiles: true });
+    });
+
+    it('passes undefined dotfiles when not set in config', async () => {
+      await addServer('/test/directory', 9000);
+      startServer.mockReturnValue(12345);
+
+      await startCommand();
+
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9000, { dotfiles: undefined });
+    });
+
+    it('handles mixed servers with and without dotfiles option', async () => {
+      await addServer('/server/with-dotfiles', 9001, { dotfiles: true });
+      await addServer('/server/without-dotfiles', 9002);
+      startServer.mockReturnValue(12345);
+
+      await startCommand();
+
+      expect(startServer).toHaveBeenCalledWith('/server/with-dotfiles', 9001, { dotfiles: true });
+      expect(startServer).toHaveBeenCalledWith('/server/without-dotfiles', 9002, { dotfiles: undefined });
     });
   });
 });

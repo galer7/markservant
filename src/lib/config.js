@@ -10,6 +10,7 @@ import { getConfigDir, getConfigPath, normalizePath } from './paths.js';
  * @property {number} port - Port the server is running on
  * @property {number|null} pid - Process ID of the server, or null if not running
  * @property {string} addedAt - ISO timestamp when the server was added
+ * @property {boolean} [dotfiles] - Whether to show dotfiles in directory listings
  */
 
 /**
@@ -142,9 +143,11 @@ export async function findServer(directory) {
  * PID starts as null.
  * @param {string} directory - The directory path for the server.
  * @param {number} port - The port number for the server.
+ * @param {Object} [options] - Additional server options.
+ * @param {boolean} [options.dotfiles] - Whether to show dotfiles in directory listings.
  * @returns {Promise<ServerEntry>} The newly created server entry.
  */
-export async function addServer(directory, port) {
+export async function addServer(directory, port, options = {}) {
   const release = await acquireLock();
 
   try {
@@ -157,6 +160,10 @@ export async function addServer(directory, port) {
       pid: null,
       addedAt: new Date().toISOString(),
     };
+
+    if (options.dotfiles) {
+      newServer.dotfiles = true;
+    }
 
     config.servers.push(newServer);
 

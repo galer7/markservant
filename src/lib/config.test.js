@@ -309,6 +309,42 @@ describe('config.js', () => {
       expect(savedConfig.servers[0].directory).toBe('/first/path');
       expect(savedConfig.servers[1].directory).toBe('/second/path');
     });
+
+    it('stores dotfiles option when provided', async () => {
+      const result = await addServer('/test/path', 3000, { dotfiles: true });
+
+      expect(result.dotfiles).toBe(true);
+
+      const configPath = join(testConfigDir, 'config.json');
+      const content = await readFile(configPath, 'utf-8');
+      const savedConfig = JSON.parse(content);
+
+      expect(savedConfig.servers[0].dotfiles).toBe(true);
+    });
+
+    it('does not include dotfiles when option is false', async () => {
+      const result = await addServer('/test/path', 3000, { dotfiles: false });
+
+      expect(result.dotfiles).toBeUndefined();
+
+      const configPath = join(testConfigDir, 'config.json');
+      const content = await readFile(configPath, 'utf-8');
+      const savedConfig = JSON.parse(content);
+
+      expect(savedConfig.servers[0].dotfiles).toBeUndefined();
+    });
+
+    it('does not include dotfiles when option not provided', async () => {
+      const result = await addServer('/test/path', 3000);
+
+      expect(result.dotfiles).toBeUndefined();
+
+      const configPath = join(testConfigDir, 'config.json');
+      const content = await readFile(configPath, 'utf-8');
+      const savedConfig = JSON.parse(content);
+
+      expect(savedConfig.servers[0].dotfiles).toBeUndefined();
+    });
   });
 
   describe('removeServer', () => {

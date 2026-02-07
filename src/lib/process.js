@@ -7,22 +7,26 @@ const exec = promisify(execCallback);
  * Start a markserv instance for a given directory on a specified port.
  * @param {string} directory - The directory to serve
  * @param {number} port - The port to run markserv on
+ * @param {Object} [options] - Additional options.
+ * @param {boolean} [options.dotfiles] - Whether to show dotfiles in directory listings.
  * @returns {number} The PID of the spawned process
  */
-export function startServer(directory, port) {
+export function startServer(directory, port, options = {}) {
   // Calculate a unique livereload port based on the main port to avoid conflicts
   // when running multiple markserv instances
   const livereloadPort = port + 10000;
 
-  const child = spawn(
-    'markserv',
-    [directory, '-p', String(port), '--livereloadport', String(livereloadPort)],
-    {
-      cwd: '/',
-      detached: true,
-      stdio: 'ignore',
-    }
-  );
+  const args = [directory, '-p', String(port), '--livereloadport', String(livereloadPort)];
+
+  if (options.dotfiles) {
+    args.push('--dotfiles', 'allow');
+  }
+
+  const child = spawn('markserv', args, {
+    cwd: '/',
+    detached: true,
+    stdio: 'ignore',
+  });
 
   child.unref();
 

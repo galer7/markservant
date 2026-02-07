@@ -203,7 +203,7 @@ describe('add command', () => {
 
       await addCommand('/test/directory');
 
-      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001);
+      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
     });
 
     it('handles addServer errors', async () => {
@@ -223,7 +223,7 @@ describe('add command', () => {
 
       await addCommand('/test/directory');
 
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001);
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
     });
 
     it('handles server start errors', async () => {
@@ -485,6 +485,43 @@ describe('add command', () => {
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.stringContaining('Unexpected error')
       );
+    });
+  });
+
+  describe('dotfiles option', () => {
+    beforeEach(() => {
+      // Reset the normalizePath mock to default behavior
+      normalizePath.mockImplementation((dir) => {
+        if (globalThis.__TEST_NORMALIZE_ERROR__) {
+          throw new Error(globalThis.__TEST_NORMALIZE_ERROR__);
+        }
+        return dir || globalThis.__TEST_NORMALIZED_PATH__;
+      });
+    });
+
+    it('passes dotfiles option to addServer when enabled', async () => {
+      globalThis.__TEST_NORMALIZED_PATH__ = '/test/directory';
+
+      await addCommand('/test/directory', { dotfiles: true });
+
+      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
+    });
+
+    it('passes dotfiles option to startServer when enabled', async () => {
+      globalThis.__TEST_NORMALIZED_PATH__ = '/test/directory';
+
+      await addCommand('/test/directory', { dotfiles: true });
+
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
+    });
+
+    it('passes undefined dotfiles when option not provided', async () => {
+      globalThis.__TEST_NORMALIZED_PATH__ = '/test/directory';
+
+      await addCommand('/test/directory');
+
+      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
     });
   });
 });
