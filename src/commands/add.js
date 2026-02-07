@@ -9,9 +9,11 @@ import { installLaunchAgent, isLaunchAgentInstalled } from '../lib/launchagent.j
  * Add a directory to the watch list and start markserv.
  * @param {string} [directory] - The directory to add. Defaults to current working directory.
  * @param {Object} [options] - Command options from Commander.
- * @param {boolean} [options.dotfiles] - Whether to show dotfiles in directory listings.
+ * @param {boolean} [options.noDotfiles] - Whether to hide dotfiles in directory listings.
  */
 export default async function addCommand(directory, options = {}) {
+  // Dotfiles are shown by default, use --no-dotfiles to hide them
+  const showDotfiles = !options.noDotfiles;
   try {
     // Step 1: Normalize the directory path (default to cwd if not provided)
     let normalizedPath;
@@ -51,7 +53,7 @@ export default async function addCommand(directory, options = {}) {
 
     // Step 4: Add server to config
     try {
-      await addServer(normalizedPath, port, { dotfiles: options.dotfiles });
+      await addServer(normalizedPath, port, { dotfiles: showDotfiles });
     } catch (error) {
       console.error(chalk.red(`Error adding server to config: ${error.message}`));
       process.exit(1);
@@ -60,7 +62,7 @@ export default async function addCommand(directory, options = {}) {
     // Step 5: Start the markserv process
     let pid;
     try {
-      pid = startServer(normalizedPath, port, { dotfiles: options.dotfiles });
+      pid = startServer(normalizedPath, port, { dotfiles: showDotfiles });
     } catch (error) {
       console.error(chalk.red(`Error starting markserv: ${error.message}`));
       process.exit(1);
