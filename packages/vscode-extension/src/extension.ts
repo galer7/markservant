@@ -170,7 +170,7 @@ async function readAloud(context: vscode.ExtensionContext) {
   });
 
   // Create/show the player panel
-  const panel = PlayerPanel.createOrShow(context.extensionUri);
+  const { panel, isNew } = PlayerPanel.createOrShow(context.extensionUri);
 
   // Handle panel disposal
   panel.onDidDispose(() => {
@@ -202,7 +202,8 @@ async function readAloud(context: vscode.ExtensionContext) {
   });
 
   panel.onMessage("ready", () => {
-    // Webview is ready — synthesize first chunk and start
+    // Webview is ready — show loading state and synthesize first chunk
+    panel.postMessage({ type: "loading", message: "Synthesizing speech..." });
     void synthesizeAndPlay(client, panel, 0);
   });
 
@@ -211,6 +212,12 @@ async function readAloud(context: vscode.ExtensionContext) {
     void vscode.window.showErrorMessage(`TTS playback error: ${msg.message}`);
     stopReading();
   });
+
+  // If panel already existed, webview won't re-send "ready" — start directly
+  if (!isNew) {
+    panel.postMessage({ type: "loading", message: "Synthesizing speech..." });
+    void synthesizeAndPlay(client, panel, 0);
+  }
 }
 
 // ---------------------------------------------------------------------------

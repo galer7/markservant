@@ -68,6 +68,7 @@ export class KokoroClient {
       voice: this.voice,
       speed: this.speed,
       response_format: "mp3",
+      stream: false,
     };
 
     let response: Response;

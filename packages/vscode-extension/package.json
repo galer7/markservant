@@ -59,7 +59,7 @@
         },
         "markservant-tts.speed": {
           "type": "number",
-          "default": 1,
+          "default": 2,
           "minimum": 0.5,
           "maximum": 2,
           "description": "Speech speed multiplier"

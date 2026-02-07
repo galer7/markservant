@@ -26,11 +26,11 @@ export class PlayerPanel {
    * @param extensionUri - The URI of the extension's root directory,
    *   used to derive local resource roots for the webview.
    */
-  static createOrShow(extensionUri: vscode.Uri): PlayerPanel {
+  static createOrShow(extensionUri: vscode.Uri): { panel: PlayerPanel; isNew: boolean } {
     // If we already have a panel, reveal it and return the existing instance
     if (PlayerPanel.instance) {
       PlayerPanel.instance.panel.reveal(vscode.ViewColumn.Beside);
-      return PlayerPanel.instance;
+      return { panel: PlayerPanel.instance, isNew: false };
     }
 
     const panel = vscode.window.createWebviewPanel(
@@ -45,7 +45,7 @@ export class PlayerPanel {
     );
 
     PlayerPanel.instance = new PlayerPanel(panel, extensionUri);
-    return PlayerPanel.instance;
+    return { panel: PlayerPanel.instance, isNew: true };
   }
 
   /**

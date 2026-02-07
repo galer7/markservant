@@ -198,6 +198,7 @@ describe("KokoroClient", () => {
         voice: VOICE,
         speed: SPEED,
         response_format: "mp3",
+        stream: false,
       });
     });
 

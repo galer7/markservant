@@ -373,6 +373,10 @@
         lastHighlightedIndex = -1;
         break;
 
+      case "loading":
+        setStatus(msg.message || "Loading...");
+        break;
+
       default:
         break;
     }

@@ -91,6 +91,7 @@ export type WebviewToExtensionMessage =
 /** Messages sent from the extension host to the webview. */
 export type ExtensionToWebviewMessage =
   | { type: "loadAudio"; audioBase64: string; chunkIndex: number; totalChunks: number }
+  | { type: "loading"; message: string }
   | { type: "play" }
   | { type: "pause" }
   | { type: "stop" }
