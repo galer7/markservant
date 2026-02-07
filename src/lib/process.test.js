@@ -14,7 +14,7 @@ describe('process.js', () => {
   });
 
   describe('startServer', () => {
-    it('spawns markserv with correct arguments', () => {
+    it('spawns markserv with correct arguments using node and full path', () => {
       const mockChild = {
         pid: 12345,
         unref: vi.fn(),
@@ -23,9 +23,10 @@ describe('process.js', () => {
 
       startServer('/path/to/directory', 8080);
 
+      const expectedMarkservPath = `${require('path').dirname(process.execPath)}/markserv`;
       expect(spawn).toHaveBeenCalledWith(
-        'markserv',
-        ['/path/to/directory', '-p', '8080', '--livereloadport', '18080', '--no-browser'],
+        process.execPath,
+        [expectedMarkservPath, '/path/to/directory', '-p', '8080', '--livereloadport', '18080', '--no-browser'],
         {
           cwd: '/',
           detached: true,
@@ -75,9 +76,10 @@ describe('process.js', () => {
 
       startServer('/dir', 9999);
 
+      const expectedMarkservPath = `${require('path').dirname(process.execPath)}/markserv`;
       expect(spawn).toHaveBeenCalledWith(
-        'markserv',
-        ['/dir', '-p', '9999', '--livereloadport', '19999', '--no-browser'],
+        process.execPath,
+        [expectedMarkservPath, '/dir', '-p', '9999', '--livereloadport', '19999', '--no-browser'],
         expect.any(Object)
       );
     });
@@ -91,9 +93,10 @@ describe('process.js', () => {
 
       startServer('/path/to/dir', 8000, { dotfiles: true });
 
+      const expectedMarkservPath = `${require('path').dirname(process.execPath)}/markserv`;
       expect(spawn).toHaveBeenCalledWith(
-        'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser', '--dotfiles', 'allow'],
+        process.execPath,
+        [expectedMarkservPath, '/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser', '--dotfiles', 'allow'],
         expect.any(Object)
       );
     });
@@ -107,9 +110,10 @@ describe('process.js', () => {
 
       startServer('/path/to/dir', 8000, { dotfiles: false });
 
+      const expectedMarkservPath = `${require('path').dirname(process.execPath)}/markserv`;
       expect(spawn).toHaveBeenCalledWith(
-        'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
+        process.execPath,
+        [expectedMarkservPath, '/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
         expect.any(Object)
       );
     });
@@ -123,9 +127,10 @@ describe('process.js', () => {
 
       startServer('/path/to/dir', 8000, {});
 
+      const expectedMarkservPath = `${require('path').dirname(process.execPath)}/markserv`;
       expect(spawn).toHaveBeenCalledWith(
-        'markserv',
-        ['/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
+        process.execPath,
+        [expectedMarkservPath, '/path/to/dir', '-p', '8000', '--livereloadport', '18000', '--no-browser'],
         expect.any(Object)
       );
     });

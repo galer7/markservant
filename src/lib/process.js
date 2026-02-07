@@ -1,7 +1,17 @@
 import { spawn, exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import { dirname, join } from 'path';
 
 const exec = promisify(execCallback);
+
+/**
+ * Resolve the full path to the markserv CLI script.
+ * Follows the symlink in node's bin directory to get the actual script path.
+ * @returns {string} Full path to the markserv CLI script
+ */
+function getMarkservPath() {
+  return join(dirname(process.execPath), 'markserv');
+}
 
 /**
  * Start a markserv instance for a given directory on a specified port.
@@ -22,7 +32,9 @@ export function startServer(directory, port, options = {}) {
     args.push('--dotfiles', 'allow');
   }
 
-  const child = spawn('markserv', args, {
+  // Use process.execPath (full path to node) to avoid relying on PATH,
+  // which may not include nvm's bin dir (e.g. when run by LaunchAgent).
+  const child = spawn(process.execPath, [getMarkservPath(), ...args], {
     cwd: '/',
     detached: true,
     stdio: 'ignore',

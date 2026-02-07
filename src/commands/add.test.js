@@ -35,6 +35,7 @@ vi.mock('../lib/ports.js', () => ({
 vi.mock('../lib/process.js', () => ({
   startServer: vi.fn(),
   openInEdge: vi.fn(),
+  isServerRunning: vi.fn(),
 }));
 
 // Mock launchagent module
@@ -47,7 +48,7 @@ vi.mock('../lib/launchagent.js', () => ({
 const { normalizePath } = await import('../lib/paths.js');
 const { findServer, addServer, updateServerPid, getAllServers } = await import('../lib/config.js');
 const { allocatePort } = await import('../lib/ports.js');
-const { startServer, openInEdge } = await import('../lib/process.js');
+const { startServer, openInEdge, isServerRunning } = await import('../lib/process.js');
 const { installLaunchAgent, isLaunchAgentInstalled } = await import('../lib/launchagent.js');
 
 // Import the command after all mocks are set up
@@ -77,6 +78,7 @@ describe('add command', () => {
     getAllServers.mockResolvedValue([{ directory: '/test/dir', port: 9001, pid: 12345 }]);
     isLaunchAgentInstalled.mockReturnValue(false);
     installLaunchAgent.mockReturnValue(true);
+    isServerRunning.mockReturnValue(true);
     openInEdge.mockResolvedValue(undefined);
 
     // Mock console.log and console.error
@@ -138,9 +140,10 @@ describe('add command', () => {
   });
 
   describe('existing server handling', () => {
-    it('shows existing server and opens Edge when already in watch list', async () => {
+    it('shows existing server and opens Edge when already running', async () => {
       const existingServer = { directory: '/existing/dir', port: 9000, pid: 11111 };
       findServer.mockResolvedValue(existingServer);
+      isServerRunning.mockReturnValue(true);
       globalThis.__TEST_NORMALIZED_PATH__ = '/existing/dir';
 
       await addCommand('/existing/dir');
@@ -159,9 +162,27 @@ describe('add command', () => {
       expect(startServer).not.toHaveBeenCalled();
     });
 
+    it('restarts stopped server when already in watch list', async () => {
+      const existingServer = { directory: '/existing/dir', port: 9000, pid: 11111, dotfiles: true };
+      findServer.mockResolvedValue(existingServer);
+      isServerRunning.mockReturnValue(false);
+      startServer.mockReturnValue(22222);
+      globalThis.__TEST_NORMALIZED_PATH__ = '/existing/dir';
+
+      await addCommand('/existing/dir');
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        expect.stringContaining('stopped. Restarting')
+      );
+      expect(startServer).toHaveBeenCalledWith('/existing/dir', 9000, { dotfiles: true });
+      expect(updateServerPid).toHaveBeenCalledWith('/existing/dir', 22222);
+      expect(openInEdge).toHaveBeenCalledWith('http://localhost:9000');
+    });
+
     it('handles openInEdge error for existing server gracefully', async () => {
       const existingServer = { directory: '/existing/dir', port: 9000, pid: 11111 };
       findServer.mockResolvedValue(existingServer);
+      isServerRunning.mockReturnValue(true);
       openInEdge.mockRejectedValue(new Error('Browser not found'));
       globalThis.__TEST_NORMALIZED_PATH__ = '/existing/dir';
 
@@ -203,7 +224,7 @@ describe('add command', () => {
 
       await addCommand('/test/directory');
 
-      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
+      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
     });
 
     it('handles addServer errors', async () => {
@@ -223,7 +244,7 @@ describe('add command', () => {
 
       await addCommand('/test/directory');
 
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
     });
 
     it('handles server start errors', async () => {
@@ -443,7 +464,7 @@ describe('add command', () => {
       ]);
     });
 
-    it('stops after finding existing server', async () => {
+    it('stops after finding existing running server', async () => {
       const callOrder = [];
 
       normalizePath.mockImplementation((dir) => {
@@ -454,6 +475,10 @@ describe('add command', () => {
         callOrder.push('findServer');
         return { directory: '/existing/path', port: 9000, pid: 11111 };
       });
+      isServerRunning.mockImplementation(() => {
+        callOrder.push('isServerRunning');
+        return true;
+      });
       openInEdge.mockImplementation(async () => {
         callOrder.push('openInEdge');
       });
@@ -463,6 +488,7 @@ describe('add command', () => {
       expect(callOrder).toEqual([
         'normalizePath',
         'findServer',
+        'isServerRunning',
         'openInEdge',
       ]);
 
@@ -515,13 +541,14 @@ describe('add command', () => {
       expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
     });
 
-    it('passes undefined dotfiles when option not provided', async () => {
+    it('passes true dotfiles by default when option not provided', async () => {
       globalThis.__TEST_NORMALIZED_PATH__ = '/test/directory';
 
       await addCommand('/test/directory');
 
-      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
-      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: undefined });
+      // showDotfiles defaults to true (since !undefined === true)
+      expect(addServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
+      expect(startServer).toHaveBeenCalledWith('/test/directory', 9001, { dotfiles: true });
     });
   });
 });

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { normalizePath } from '../lib/paths.js';
 import { findServer, addServer, updateServerPid, getAllServers } from '../lib/config.js';
 import { allocatePort } from '../lib/ports.js';
-import { startServer, openInEdge } from '../lib/process.js';
+import { startServer, openInEdge, isServerRunning } from '../lib/process.js';
 import { installLaunchAgent, isLaunchAgentInstalled } from '../lib/launchagent.js';
 
 /**
@@ -30,9 +30,23 @@ export default async function addCommand(directory, options = {}) {
 
     if (existingServer) {
       const url = `http://localhost:${existingServer.port}`;
-      console.log(chalk.yellow(`Directory already being served: ${normalizedPath}`));
-      console.log(chalk.cyan(`Opening ${url} in Microsoft Edge...`));
 
+      // Check if the server is actually running; restart it if not
+      if (existingServer.pid === null || !isServerRunning(existingServer.pid)) {
+        console.log(chalk.yellow(`Server for ${normalizedPath} is stopped. Restarting...`));
+        try {
+          const newPid = startServer(normalizedPath, existingServer.port, { dotfiles: existingServer.dotfiles });
+          await updateServerPid(normalizedPath, newPid);
+          console.log(chalk.green(`Restarted on ${url} (PID: ${newPid})`));
+        } catch (error) {
+          console.error(chalk.red(`Failed to restart server: ${error.message}`));
+          return;
+        }
+      } else {
+        console.log(chalk.yellow(`Directory already being served: ${normalizedPath}`));
+      }
+
+      console.log(chalk.cyan(`Opening ${url} in Microsoft Edge...`));
       try {
         await openInEdge(url);
       } catch (error) {
