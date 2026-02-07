@@ -13,3 +13,9 @@ packages/vscode-extension/dist/
 # Development helper scripts
 PROMPT.md
 ralph.sh
+
+# Thoughts content (keep .gitkeep only)
+thoughts/shared/issues/*.md
+thoughts/shared/plans/*.md
+thoughts/shared/research/*.md
+!thoughts/shared/**/.gitkeep
