@@ -12,18 +12,49 @@ import {
 } from "../lib/docker.js";
 
 /**
+ * Validate a port number is within the valid TCP range.
+ * @param {number} port
+ * @throws {Error} If port is not a valid integer in range 1-65535.
+ */
+export function validatePort(port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid port number: ${port}. Must be an integer between 1 and 65535.`);
+  }
+}
+
+/**
+ * Validate a Docker container name.
+ * Docker requires: [a-zA-Z0-9][a-zA-Z0-9_.-]* and max 64 chars.
+ * @param {string} name
+ * @throws {Error} If name is not a valid Docker container name.
+ */
+export function validateContainerName(name) {
+  if (typeof name !== "string" || name.length === 0 || name.length > 64) {
+    throw new Error(`Invalid container name: "${name}". Must be 1-64 characters.`);
+  }
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name)) {
+    throw new Error(
+      `Invalid container name: "${name}". Must start with alphanumeric and contain only [a-zA-Z0-9_.-].`,
+    );
+  }
+}
+
+/**
  * Get the TTS server configuration from the config file.
- * Returns merged defaults with any user overrides.
+ * Returns merged defaults with any user overrides. Validates port and container name.
  * @returns {Promise<{containerName: string, port: number, image: string}>}
  */
 async function getTtsConfig() {
   const config = await loadConfig();
   const tts = config.ttsServer || {};
-  return {
-    containerName: tts.containerName || DEFAULTS.containerName,
-    port: tts.port || DEFAULTS.port,
-    image: tts.image || DEFAULTS.image,
-  };
+  const containerName = tts.containerName || DEFAULTS.containerName;
+  const port = tts.port || DEFAULTS.port;
+  const image = tts.image || DEFAULTS.image;
+
+  validatePort(port);
+  validateContainerName(containerName);
+
+  return { containerName, port, image };
 }
 
 /**

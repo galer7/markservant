@@ -12,13 +12,13 @@ Two pieces to build:
 
 ## Phase 1: `msv tts-server start/stop/status` CLI Commands — DONE
 
-Phase 1 is complete. All files implemented and tested (45 new tests, 259 total passing).
+Phase 1 is complete. All files implemented and tested (61 new tests, 275 total passing).
 
 ### What was built
 - **`packages/cli/src/lib/docker.js`** — Docker container lifecycle: `isDockerAvailable()`, `isContainerRunning()`, `getContainerInfo()`, `pullImageIfNeeded()`, `startContainer()`, `stopContainer()`, `waitForHealthCheck()`
 - **`packages/cli/src/commands/tts-server.js`** — `startTtsServer()`, `stopTtsServer()`, `statusTtsServer()` with TTS config read/write via existing config.js (ttsServer field in config.json)
-- **`packages/cli/src/lib/docker.test.js`** — 28 tests covering all Docker lifecycle functions with mocked exec
-- **`packages/cli/src/commands/tts-server.test.js`** — 17 tests covering all three subcommands, custom config, error paths
+- **`packages/cli/src/lib/docker.test.js`** — 29 tests covering all Docker lifecycle functions with mocked exec, including pull timeout verification
+- **`packages/cli/src/commands/tts-server.test.js`** — 32 tests covering all three subcommands, custom config, error paths, port/container name validation
 - **`packages/cli/bin/msv.js`** — registered `tts-server` command group with `start`, `stop`, `status` subcommands
 
 ### Design decisions
@@ -26,12 +26,14 @@ Phase 1 is complete. All files implemented and tested (45 new tests, 259 total p
 - `getTtsConfig()` / `saveTtsConfig()` live in tts-server.js (not config.js) since they're TTS-specific
 - Health check uses curl + exponential backoff (1s→5s cap), 2 min timeout for model loading
 - Container is force-removed before start to handle stale stopped containers
+- Port validation (1-65535) and container name validation (Docker naming rules) on config load to fail fast with clear errors
+- Docker image pull timeout set to 30 minutes (Kokoro image is ~3GB, slow connections need time)
 
 ---
 
 ## Phases 2–5: VS Code Extension — DONE
 
-Phases 2 through 5 were implemented together as a single unit. All files built and tested (100 new tests, 359 total passing).
+Phases 2 through 5 were implemented together as a single unit. All files built and tested (100 new tests, 375 total passing).
 
 ### What was built
 
@@ -53,7 +55,7 @@ Phases 2 through 5 were implemented together as a single unit. All files built a
 - **`media/player.css`** — Theme-aware styles using `--vscode-*` CSS variables, responsive layout.
 
 **Word highlighting (`packages/vscode-extension/src/highlight/`)**
-- **`wordMapper.ts`** — Maps TTS word timestamps to source positions via offset map. Three-strategy fuzzy matching (exact, stripped-punctuation, backtrack) to handle TTS quirks.
+- **`wordMapper.ts`** — Maps TTS word timestamps to source positions via offset map. Imports `plainOffsetToSource` from `markdownStripper.ts` (single source of truth). Three-strategy fuzzy matching (exact, stripped-punctuation, backtrack) to handle TTS quirks.
 - **`decorator.ts`** — `WordHighlighter` class with yellow (light) / blue (dark) background, 3px border-radius, auto-scroll via `revealRange`.
 
 **Orchestrator**

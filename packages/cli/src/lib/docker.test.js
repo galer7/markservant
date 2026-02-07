@@ -225,6 +225,20 @@ describe("docker.js", () => {
 
       expect(result).toBe(false);
     });
+
+    it("uses a 30-minute timeout for docker pull to handle large images on slow connections", async () => {
+      mockExecByCommand({
+        "docker image inspect": { err: "No such image" },
+        "docker pull": { stdout: "Pull complete" },
+      });
+
+      await pullImageIfNeeded("large-image:latest");
+
+      // Find the docker pull call and verify the timeout
+      const pullCall = execCallback.mock.calls.find((c) => c[0].includes("docker pull"));
+      expect(pullCall).toBeDefined();
+      expect(pullCall[1]).toEqual(expect.objectContaining({ timeout: 1800000 }));
+    });
   });
 
   describe("startContainer", () => {

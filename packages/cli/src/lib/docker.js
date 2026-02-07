@@ -79,7 +79,7 @@ export async function pullImageIfNeeded(image) {
   } catch {
     // Image not found locally, pull it
     try {
-      await exec(`docker pull ${image}`, { timeout: 600000 }); // 10 min timeout for large images
+      await exec(`docker pull ${image}`, { timeout: 1800000 }); // 30 min timeout — Kokoro image is ~3GB
       return true;
     } catch {
       return false;

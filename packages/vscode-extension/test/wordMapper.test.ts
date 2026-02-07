@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mapWordsToSource, plainOffsetToSource } from "../src/highlight/wordMapper.js";
+import { mapWordsToSource } from "../src/highlight/wordMapper.js";
+import { plainOffsetToSource } from "../src/tts/markdownStripper.js";
 import type { OffsetMapping, TextChunk, WordTimestamp } from "../src/tts/types.js";
 
 // ---------------------------------------------------------------------------

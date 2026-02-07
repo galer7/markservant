@@ -32,7 +32,8 @@ vi.mock("../lib/docker.js", async () => {
 const docker = await import("../lib/docker.js");
 
 // Import commands after mocking
-const { startTtsServer, stopTtsServer, statusTtsServer } = await import("./tts-server.js");
+const { startTtsServer, stopTtsServer, statusTtsServer, validatePort, validateContainerName } =
+  await import("./tts-server.js");
 
 describe("tts-server.js", () => {
   let testConfigDir;
@@ -341,6 +342,120 @@ describe("tts-server.js", () => {
       await expect(statusTtsServer()).rejects.toThrow("process.exit called");
 
       expect(mockProcessExit).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe("validatePort", () => {
+    it("accepts valid ports", () => {
+      expect(() => validatePort(1)).not.toThrow();
+      expect(() => validatePort(80)).not.toThrow();
+      expect(() => validatePort(8880)).not.toThrow();
+      expect(() => validatePort(65535)).not.toThrow();
+    });
+
+    it("rejects port 0", () => {
+      expect(() => validatePort(0)).toThrow("Invalid port number: 0");
+    });
+
+    it("rejects negative ports", () => {
+      expect(() => validatePort(-1)).toThrow("Invalid port number: -1");
+    });
+
+    it("rejects ports above 65535", () => {
+      expect(() => validatePort(65536)).toThrow("Invalid port number: 65536");
+    });
+
+    it("rejects non-integer ports", () => {
+      expect(() => validatePort(8880.5)).toThrow("Invalid port number: 8880.5");
+    });
+
+    it("rejects NaN", () => {
+      expect(() => validatePort(Number.NaN)).toThrow("Invalid port number");
+    });
+  });
+
+  describe("validateContainerName", () => {
+    it("accepts valid container names", () => {
+      expect(() => validateContainerName("my-container")).not.toThrow();
+      expect(() => validateContainerName("markservant-kokoro-tts")).not.toThrow();
+      expect(() => validateContainerName("a")).not.toThrow();
+      expect(() => validateContainerName("container.name")).not.toThrow();
+      expect(() => validateContainerName("container_name")).not.toThrow();
+    });
+
+    it("rejects empty string", () => {
+      expect(() => validateContainerName("")).toThrow("Must be 1-64 characters");
+    });
+
+    it("rejects names starting with a hyphen", () => {
+      expect(() => validateContainerName("-invalid")).toThrow("Must start with alphanumeric");
+    });
+
+    it("rejects names starting with a dot", () => {
+      expect(() => validateContainerName(".invalid")).toThrow("Must start with alphanumeric");
+    });
+
+    it("rejects names with spaces", () => {
+      expect(() => validateContainerName("my container")).toThrow("Must start with alphanumeric");
+    });
+
+    it("rejects names longer than 64 characters", () => {
+      const longName = "a".repeat(65);
+      expect(() => validateContainerName(longName)).toThrow("Must be 1-64 characters");
+    });
+
+    it("rejects non-string values", () => {
+      expect(() => validateContainerName(123)).toThrow("Must be 1-64 characters");
+    });
+  });
+
+  describe("config validation integration", () => {
+    it("exits with error when config has invalid port", async () => {
+      const configPath = join(testConfigDir, "config.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          servers: [],
+          ttsServer: {
+            containerName: "valid-name",
+            port: 99999,
+            image: "img:latest",
+          },
+        }),
+        "utf-8",
+      );
+
+      docker.isDockerAvailable.mockResolvedValue(true);
+
+      await expect(startTtsServer()).rejects.toThrow("process.exit called");
+
+      expect(mockProcessExit).toHaveBeenCalledWith(1);
+      expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("Invalid port number"));
+    });
+
+    it("exits with error when config has invalid container name", async () => {
+      const configPath = join(testConfigDir, "config.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          servers: [],
+          ttsServer: {
+            containerName: "-bad-name",
+            port: 8880,
+            image: "img:latest",
+          },
+        }),
+        "utf-8",
+      );
+
+      docker.isDockerAvailable.mockResolvedValue(true);
+
+      await expect(startTtsServer()).rejects.toThrow("process.exit called");
+
+      expect(mockProcessExit).toHaveBeenCalledWith(1);
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid container name"),
+      );
     });
   });
 });

@@ -8,57 +8,8 @@
  * highlight the correct range while audio plays.
  */
 
-import type { MappedWord, OffsetMapping, TextChunk, WordTimestamp } from "../tts/types.js";
-
-/**
- * Given a range [plainStart, plainEnd) in plain text, find the corresponding
- * range in the original markdown source document by walking the offset map.
- *
- * The offset map contains entries that describe how contiguous runs of plain
- * text map back to (potentially non-contiguous) ranges in the source. We find
- * all entries that overlap with the requested plain-text range and return the
- * source span that covers them all.
- */
-export function plainOffsetToSource(
-  plainStart: number,
-  plainEnd: number,
-  offsetMap: OffsetMapping[],
-): { sourceStart: number; sourceEnd: number } {
-  let sourceStart = -1;
-  let sourceEnd = -1;
-
-  for (const entry of offsetMap) {
-    // Check if this mapping entry overlaps with the requested plain-text range.
-    // Two ranges [a, b) and [c, d) overlap when a < d && c < b.
-    if (plainStart < entry.plainEnd && plainEnd > entry.plainStart) {
-      // Compute how far into this entry our range starts and ends.
-      const overlapPlainStart = Math.max(plainStart, entry.plainStart);
-      const overlapPlainEnd = Math.min(plainEnd, entry.plainEnd);
-
-      // Translate the overlap back to source coordinates.
-      // The offset within the entry is proportional: if plainStart is 2 chars
-      // into the entry, sourceStart is also 2 chars into the source range.
-      const entrySourceStart = entry.sourceStart + (overlapPlainStart - entry.plainStart);
-      const entrySourceEnd = entry.sourceStart + (overlapPlainEnd - entry.plainStart);
-
-      if (sourceStart === -1 || entrySourceStart < sourceStart) {
-        sourceStart = entrySourceStart;
-      }
-      if (entrySourceEnd > sourceEnd) {
-        sourceEnd = entrySourceEnd;
-      }
-    }
-  }
-
-  // If no mapping was found (should not happen in normal operation), fall back
-  // to returning the plain offsets unchanged. This prevents crashes if the
-  // offset map is incomplete.
-  if (sourceStart === -1) {
-    return { sourceStart: plainStart, sourceEnd: plainEnd };
-  }
-
-  return { sourceStart, sourceEnd };
-}
+import { plainOffsetToSource } from "../tts/markdownStripper.js";
+import type { MappedWord, TextChunk, WordTimestamp } from "../tts/types.js";
 
 // ---------------------------------------------------------------------------
 // Internal helpers for fuzzy word matching
