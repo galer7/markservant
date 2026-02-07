@@ -1,24 +1,29 @@
 {
-  "name": "markservant",
+  "name": "markservant-monorepo",
   "version": "1.0.0",
-  "description": "CLI tool to manage multiple markserv instances with persistence",
+  "private": true,
   "type": "module",
-  "bin": {
-    "msv": "./bin/msv.js"
-  },
   "scripts": {
-    "test": "vitest"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "chalk": "latest",
-    "commander": "latest"
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "typecheck": "turbo run typecheck",
+    "check": "biome check . && turbo run typecheck test",
+    "security": "pnpm audit"
   },
   "devDependencies": {
-    "vitest": "latest"
+    "@biomejs/biome": "^2.3.14",
+    "@evilmartians/lefthook": "^2.1.0",
+    "turbo": "latest"
   },
-  "author": "",
-  "license": "MIT"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@evilmartians/lefthook",
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@9.15.4"
 }

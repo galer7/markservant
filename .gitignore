@@ -2,8 +2,12 @@ node_modules/
 .DS_Store
 *.log
 
+# Monorepo
+.turbo/
+package-lock.json
+
 # VS Code extension build output
-vscode-extension/dist/
+packages/vscode-extension/dist/
 
 # Development helper scripts
 PROMPT.md

@@ -1,0 +1,23 @@
+{
+  "name": "markservant",
+  "version": "1.0.0",
+  "description": "CLI tool to manage multiple markserv instances with persistence",
+  "type": "module",
+  "bin": {
+    "msv": "./bin/msv.js"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chalk": "latest",
+    "commander": "latest"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  },
+  "license": "MIT"
+}
