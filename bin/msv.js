@@ -9,6 +9,7 @@ import listCommand from '../src/commands/list.js';
 import openCommand from '../src/commands/open.js';
 import startCommand from '../src/commands/start.js';
 import stopCommand from '../src/commands/stop.js';
+import { startTtsServer, stopTtsServer, statusTtsServer } from '../src/commands/tts-server.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -49,5 +50,24 @@ program
   .command('stop')
   .description('Stop all running markserv instances')
   .action(stopCommand);
+
+const ttsServer = program
+  .command('tts-server')
+  .description('Manage the Kokoro TTS Docker container');
+
+ttsServer
+  .command('start')
+  .description('Start the Kokoro TTS server (pulls Docker image on first run)')
+  .action(startTtsServer);
+
+ttsServer
+  .command('stop')
+  .description('Stop and remove the Kokoro TTS server container')
+  .action(stopTtsServer);
+
+ttsServer
+  .command('status')
+  .description('Check the status of the Kokoro TTS server')
+  .action(statusTtsServer);
 
 program.parse(process.argv);

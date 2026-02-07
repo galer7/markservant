@@ -10,35 +10,22 @@ Two pieces to build:
 
 ---
 
-## Phase 1: `msv tts-server start/stop/status` CLI Commands
+## Phase 1: `msv tts-server start/stop/status` CLI Commands — DONE
 
-### New files
+Phase 1 is complete. All files implemented and tested (45 new tests, 259 total passing).
 
-- **`src/lib/docker.js`** — Docker container lifecycle (follows pattern of `src/lib/process.js`)
-  - `isDockerAvailable()` — runs `docker info`
-  - `isContainerRunning(name)` — runs `docker inspect`
-  - `startContainer(name, image, port)` — runs `docker run -d`
-  - `stopContainer(name)` — runs `docker stop` + `docker rm`
+### What was built
+- **`src/lib/docker.js`** — Docker container lifecycle: `isDockerAvailable()`, `isContainerRunning()`, `getContainerInfo()`, `pullImageIfNeeded()`, `startContainer()`, `stopContainer()`, `waitForHealthCheck()`
+- **`src/commands/tts-server.js`** — `startTtsServer()`, `stopTtsServer()`, `statusTtsServer()` with TTS config read/write via existing config.js (ttsServer field in config.json)
+- **`src/lib/docker.test.js`** — 28 tests covering all Docker lifecycle functions with mocked exec
+- **`src/commands/tts-server.test.js`** — 17 tests covering all three subcommands, custom config, error paths
+- **`bin/msv.js`** — registered `tts-server` command group with `start`, `stop`, `status` subcommands
 
-- **`src/commands/tts-server.js`** — three subcommands:
-  - `start`: check Docker, pull image if needed, run container `markservant-kokoro-tts` on port 8880, health-check `http://localhost:8880/v1/models`, save to config
-  - `stop`: stop + remove container, update config
-  - `status`: check if container is running, print info
-
-- **`src/lib/docker.test.js`** + **`src/commands/tts-server.test.js`** — tests with mocked `execSync`/`exec`
-
-### Modified files
-
-- **`bin/msv.js`** — add `tts-server` command group with `start`, `stop`, `status` subcommands
-- **`src/lib/config.js`** — add `ttsServer: { containerName, port, image }` to config schema, add `getTtsConfig()`/`saveTtsConfig()`
-
-### Container details
-- Name: `markservant-kokoro-tts`
-- Image: `ghcr.io/remsky/kokoro-fastapi-cpu:latest`
-- Port: `8880:8880`
-
-### Milestone
-`msv tts-server start` pulls and runs the container. `curl http://localhost:8880/v1/models` works.
+### Design decisions
+- TTS config stored as `ttsServer: { containerName, port, image }` field in existing config.json (no separate config file)
+- `getTtsConfig()` / `saveTtsConfig()` live in tts-server.js (not config.js) since they're TTS-specific
+- Health check uses curl + exponential backoff (1s→5s cap), 2 min timeout for model loading
+- Container is force-removed before start to handle stale stopped containers
 
 ---
 
