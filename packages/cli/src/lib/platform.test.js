@@ -86,52 +86,90 @@ describe("platform.js", () => {
   });
 
   describe("findPython3", () => {
-    it("returns python3 from PATH when available", async () => {
-      mockExecSuccess("/opt/homebrew/bin/python3\n");
-      existsSync.mockReturnValue(false);
+    it("returns versioned brew python3.12 on Apple Silicon", async () => {
+      existsSync.mockImplementation((p) => p === "/opt/homebrew/bin/python3.12");
+      mockExecByCommand({
+        "python3.12": { stdout: "3 12\n" },
+      });
 
       const result = await findPython3();
 
-      expect(result).toBe("/opt/homebrew/bin/python3");
+      expect(result).toBe("/opt/homebrew/bin/python3.12");
     });
 
-    it("falls back to Homebrew Apple Silicon path", async () => {
-      mockExecFailure("not found");
+    it("returns unversioned brew python3 when versioned not present", async () => {
       existsSync.mockImplementation((p) => p === "/opt/homebrew/bin/python3");
+      mockExecByCommand({
+        "/opt/homebrew/bin/python3": { stdout: "3 11\n" },
+      });
 
       const result = await findPython3();
 
       expect(result).toBe("/opt/homebrew/bin/python3");
     });
 
-    it("falls back to Homebrew Intel path", async () => {
-      mockExecFailure("not found");
-      existsSync.mockImplementation((p) => p === "/usr/local/bin/python3");
+    it("skips old system python and finds brew python", async () => {
+      existsSync.mockImplementation(
+        (p) => p === "/usr/bin/python3" || p === "/opt/homebrew/bin/python3.12",
+      );
+      mockExecByCommand({
+        "python3.12": { stdout: "3 12\n" },
+        "/usr/bin/python3": { stdout: "3 9\n" },
+        "which python3": { stdout: "/usr/bin/python3\n" },
+      });
 
       const result = await findPython3();
 
-      expect(result).toBe("/usr/local/bin/python3");
+      expect(result).toBe("/opt/homebrew/bin/python3.12");
     });
 
-    it("falls back to xcrun", async () => {
+    it("falls back to PATH python3 when brew not installed", async () => {
+      existsSync.mockReturnValue(false);
+      mockExecByCommand({
+        "which python3": { stdout: "/some/custom/python3\n" },
+        "/some/custom/python3": { stdout: "3 11\n" },
+      });
+
+      const result = await findPython3();
+
+      expect(result).toBe("/some/custom/python3");
+    });
+
+    it("falls back to xcrun python3", async () => {
+      existsSync.mockReturnValue(false);
       mockExecByCommand({
         "which python3": { err: "not found" },
-        "xcrun --find python3": { stdout: "/usr/bin/python3\n" },
+        "xcrun --find python3": { stdout: "/Library/Developer/CommandLineTools/usr/bin/python3\n" },
+        "/Library/Developer/CommandLineTools/usr/bin/python3": { stdout: "3 10\n" },
       });
-      existsSync.mockReturnValue(false);
+
+      const result = await findPython3();
+
+      expect(result).toBe("/Library/Developer/CommandLineTools/usr/bin/python3");
+    });
+
+    it("returns system python if it is 3.10+", async () => {
+      existsSync.mockImplementation((p) => p === "/usr/bin/python3");
+      mockExecByCommand({
+        "which python3": { stdout: "/usr/bin/python3\n" },
+        "/usr/bin/python3": { stdout: "3 10\n" },
+      });
 
       const result = await findPython3();
 
       expect(result).toBe("/usr/bin/python3");
     });
 
-    it("falls back to system python", async () => {
-      mockExecFailure("not found");
+    it("returns null when all candidates are too old", async () => {
       existsSync.mockImplementation((p) => p === "/usr/bin/python3");
+      mockExecByCommand({
+        "which python3": { stdout: "/usr/bin/python3\n" },
+        "/usr/bin/python3": { stdout: "3 9\n" },
+      });
 
       const result = await findPython3();
 
-      expect(result).toBe("/usr/bin/python3");
+      expect(result).toBeNull();
     });
 
     it("returns null when no python3 found", async () => {

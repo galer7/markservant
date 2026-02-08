@@ -31,6 +31,18 @@
   var iconPlay = document.getElementById("icon-play");
   /** @type {HTMLElement} */
   var iconPause = document.getElementById("icon-pause");
+  /** @type {HTMLElement} */
+  var synthProgressEl = document.getElementById("synth-progress");
+  /** @type {HTMLElement} */
+  var synthProgressFill = document.getElementById("synth-progress-fill");
+  /** @type {HTMLElement} */
+  var synthProgressLabel = document.getElementById("synth-progress-label");
+  /** @type {HTMLElement} */
+  var synthEstimate = document.getElementById("synth-estimate");
+  /** @type {HTMLInputElement} */
+  var speedSlider = document.getElementById("speed-slider");
+  /** @type {HTMLElement} */
+  var speedValue = document.getElementById("speed-value");
 
   // ---------------------------------------------------------------------------
   // State
@@ -72,6 +84,12 @@
    * from firing multiple times.
    */
   var awaitingNextChunk = false;
+
+  /** Playback rate multiplier (1.0 = normal). Set by extension host. */
+  var playbackRate = 1.0;
+
+  /** Whether all chunks have been synthesized. */
+  var synthDone = false;
 
   // ---------------------------------------------------------------------------
   // Binary search: find the word index whose time range contains `time`
@@ -181,6 +199,31 @@
     btnStop.disabled = true;
   }
 
+  function showSynthProgress(current, total, avgMs, remainingMs) {
+    var avgSec = (avgMs / 1000).toFixed(1);
+    var remainSec = Math.round(remainingMs / 1000);
+
+    if (synthProgressEl) synthProgressEl.style.display = "";
+    if (synthProgressFill) {
+      synthProgressFill.style.width = `${Math.round((current / total) * 100)}%`;
+    }
+    if (synthProgressLabel) {
+      synthProgressLabel.textContent = `Synthesizing ${current} / ${total}`;
+    }
+    if (synthEstimate) {
+      synthEstimate.textContent =
+        remainingMs > 0 ? `~${avgSec}s/chunk \u00B7 ~${remainSec}s left` : "Done";
+    }
+  }
+
+  function hideSynthProgress() {
+    if (synthProgressEl) synthProgressEl.style.display = "none";
+  }
+
+  function updateBufferDisplay() {
+    setProgress(currentChunkIndex + 1, _totalChunks);
+  }
+
   // ---------------------------------------------------------------------------
   // Playback control
   // ---------------------------------------------------------------------------
@@ -194,6 +237,7 @@
     updatePlayPauseButton();
     setStatus("Playing");
 
+    audio.playbackRate = playbackRate;
     var playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise
@@ -240,6 +284,8 @@
     lastHighlightedIndex = -1;
     currentChunkIndex = -1;
     _totalChunks = 0;
+    synthDone = false;
+    hideSynthProgress();
     updatePlayPauseButton();
     disableButtons();
     setStatus("Stopped");
@@ -319,6 +365,19 @@
   });
 
   // ---------------------------------------------------------------------------
+  // Speed slider
+  // ---------------------------------------------------------------------------
+
+  speedSlider.addEventListener("input", function () {
+    var rate = parseFloat(speedSlider.value);
+    playbackRate = rate;
+    audio.playbackRate = rate;
+    audio.defaultPlaybackRate = rate;
+    speedValue.textContent = rate + "x";
+    vscode.postMessage({ type: "playbackRateChanged", rate: rate });
+  });
+
+  // ---------------------------------------------------------------------------
   // Messages from extension host
   // ---------------------------------------------------------------------------
 
@@ -339,7 +398,12 @@
 
         enableButtons();
         setProgress(msg.chunkIndex + 1, msg.totalChunks);
-        setStatus("Loading audio...");
+        if (!synthDone) {
+          setStatus("Playing \u00B7 synthesizing remaining chunks...");
+        } else {
+          setStatus("Loading audio...");
+        }
+        updateBufferDisplay();
 
         // Auto-play if the user has already interacted (chunk transition)
         if (userHasInteracted && isPlaying) {
@@ -375,6 +439,23 @@
 
       case "loading":
         setStatus(msg.message || "Loading...");
+        break;
+
+      case "setPlaybackRate":
+        playbackRate = msg.rate || 1.0;
+        audio.playbackRate = playbackRate;
+        audio.defaultPlaybackRate = playbackRate;
+        if (speedSlider) speedSlider.value = playbackRate;
+        if (speedValue) speedValue.textContent = playbackRate + "x";
+        break;
+
+      case "synthProgress":
+        showSynthProgress(msg.current, msg.total, msg.avgMs, msg.remainingMs);
+        break;
+
+      case "synthComplete":
+        synthDone = true;
+        hideSynthProgress();
         break;
 
       default:

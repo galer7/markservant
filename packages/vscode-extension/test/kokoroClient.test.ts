@@ -37,7 +37,6 @@ function fakeResponse(
 describe("KokoroClient", () => {
   const SERVER_URL = "http://localhost:8880";
   const VOICE = "af_heart";
-  const SPEED = 1.0;
 
   let client: KokoroClient;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -45,7 +44,7 @@ describe("KokoroClient", () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     global.fetch = fetchMock;
-    client = new KokoroClient(SERVER_URL, VOICE, SPEED);
+    client = new KokoroClient(SERVER_URL, VOICE);
   });
 
   afterEach(() => {
@@ -196,14 +195,14 @@ describe("KokoroClient", () => {
         model: "kokoro",
         input: "Test input",
         voice: VOICE,
-        speed: SPEED,
+        speed: 1,
         response_format: "mp3",
         stream: false,
       });
     });
 
     it("strips trailing slash from serverUrl", async () => {
-      const clientWithSlash = new KokoroClient("http://localhost:8880/", VOICE, SPEED);
+      const clientWithSlash = new KokoroClient("http://localhost:8880/", VOICE);
       fetchMock.mockResolvedValueOnce(fakeResponse(validPayload(), { status: 200 }));
 
       await clientWithSlash.synthesize("Hello");

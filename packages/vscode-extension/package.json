@@ -57,12 +57,12 @@
           "default": "af_heart",
           "description": "Kokoro TTS voice to use"
         },
-        "markservant-tts.speed": {
+        "markservant-tts.playbackRate": {
           "type": "number",
-          "default": 2,
-          "minimum": 0.5,
-          "maximum": 2,
-          "description": "Speech speed multiplier"
+          "default": 1.0,
+          "minimum": 1.0,
+          "maximum": 4.0,
+          "description": "Audio playback speed multiplier (1.0 = normal, 2.0 = double speed). Audio quality is preserved at all rates."
         }
       }
     }

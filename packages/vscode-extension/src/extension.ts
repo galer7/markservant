@@ -52,8 +52,11 @@ let editorChangeListener: vscode.Disposable | undefined;
 /** Whether a reading session is currently active. */
 let isReading = false;
 
-/** Pre-fetched next chunk (synthesized while current chunk plays). */
-let prefetchPromise: Promise<SynthesizedChunk | null> | undefined;
+/** Chunk index that playback is waiting for (synthesis hasn't caught up). */
+let pendingPlayback: number | undefined;
+
+/** Number of chunks to synthesize before starting playback. */
+const SYNTHESIS_BUFFER_THRESHOLD = 3;
 
 // ---------------------------------------------------------------------------
 // Extension lifecycle
@@ -106,9 +109,9 @@ async function readAloud(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration("markservant-tts");
   const serverUrl = config.get<string>("serverUrl", "http://localhost:8880");
   const voice = config.get<string>("voice", "af_heart");
-  const speed = config.get<number>("speed", 1.0);
+  const playbackRate = config.get<number>("playbackRate", 1.0);
 
-  const client = new KokoroClient(serverUrl, voice, speed);
+  const client = new KokoroClient(serverUrl, voice);
 
   // Check server availability
   const available = await client.isAvailable();
@@ -140,7 +143,7 @@ async function readAloud(context: vscode.ExtensionContext) {
   activeEditor = editor;
   synthesizedChunks = [];
   currentPlayingChunk = -1;
-  prefetchPromise = undefined;
+  pendingPlayback = undefined;
 
   // Create highlighter
   if (!highlighter) {
@@ -194,7 +197,7 @@ async function readAloud(context: vscode.ExtensionContext) {
 
   panel.onMessage("chunkEnded", () => {
     if (!isReading) return;
-    void playNextChunk(client, panel);
+    onChunkEnded(panel);
   });
 
   panel.onMessage("playbackStopped", () => {
@@ -202,9 +205,9 @@ async function readAloud(context: vscode.ExtensionContext) {
   });
 
   panel.onMessage("ready", () => {
-    // Webview is ready — show loading state and synthesize first chunk
+    panel.postMessage({ type: "setPlaybackRate", rate: playbackRate });
     panel.postMessage({ type: "loading", message: "Synthesizing speech..." });
-    void synthesizeAndPlay(client, panel, 0);
+    void synthesizeAllChunks(client, panel);
   });
 
   panel.onMessage("error", (msg) => {
@@ -213,10 +216,16 @@ async function readAloud(context: vscode.ExtensionContext) {
     stopReading();
   });
 
+  panel.onMessage("playbackRateChanged", (msg) => {
+    if (msg.type !== "playbackRateChanged") return;
+    void vscode.workspace.getConfiguration("markservant-tts").update("playbackRate", msg.rate, true);
+  });
+
   // If panel already existed, webview won't re-send "ready" — start directly
   if (!isNew) {
+    panel.postMessage({ type: "setPlaybackRate", rate: playbackRate });
     panel.postMessage({ type: "loading", message: "Synthesizing speech..." });
-    void synthesizeAndPlay(client, panel, 0);
+    void synthesizeAllChunks(client, panel);
   }
 }
 
@@ -224,133 +233,112 @@ async function readAloud(context: vscode.ExtensionContext) {
 // Synthesis + playback orchestration
 // ---------------------------------------------------------------------------
 
-async function synthesizeAndPlay(client: KokoroClient, panel: PlayerPanel, chunkIndex: number) {
-  if (!isReading || chunkIndex >= textChunks.length) {
-    // All chunks done
-    stopReading();
-    return;
-  }
+async function synthesizeAllChunks(client: KokoroClient, panel: PlayerPanel) {
+  let playbackStarted = false;
+  const chunkTimings: number[] = [];
 
-  try {
-    // Synthesize this chunk
-    const chunk = textChunks[chunkIndex];
-    const synthesized = await synthesizeChunk(client, chunk, chunkIndex);
+  for (let i = 0; i < textChunks.length; i++) {
+    if (!isReading) break;
 
-    if (!isReading) return; // User may have stopped while we were synthesizing
+    const chunkStart = Date.now();
 
-    synthesizedChunks[chunkIndex] = synthesized;
-    currentPlayingChunk = chunkIndex;
+    try {
+      const response = await client.synthesize(textChunks[i].text);
+      if (!isReading) break;
 
-    // Send audio to webview
-    panel.postMessage({
-      type: "loadAudio",
-      audioBase64: synthesized.audioBase64,
-      chunkIndex,
-      totalChunks: textChunks.length,
-    });
-
-    // Send timestamps so the webview timing loop can match words
-    panel.postMessage({
-      type: "setTimestamps",
-      timestamps: synthesized.mappedWords.map((w) => ({
-        word: w.word,
-        start_time: w.startTime,
-        end_time: w.endTime,
-      })),
-    });
-
-    // Pre-fetch next chunk while this one plays
-    if (chunkIndex + 1 < textChunks.length) {
-      prefetchPromise = synthesizeChunk(client, textChunks[chunkIndex + 1], chunkIndex + 1).catch(
-        () => null,
-      ); // Don't fail the current playback if pre-fetch fails
+      const mappedWords = mapWordsToSource(response.timestamps, textChunks[i], 0);
+      synthesizedChunks[i] = {
+        audioBase64: response.audio,
+        mappedWords,
+        index: i,
+      };
+    } catch (err: unknown) {
+      if (!isReading) break;
+      const message = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`TTS synthesis failed on chunk ${i + 1}: ${message}`);
+      stopReading();
+      return;
     }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    vscode.window.showErrorMessage(`TTS synthesis failed: ${message}`);
-    stopReading();
+
+    const elapsed = Date.now() - chunkStart;
+    chunkTimings.push(elapsed);
+
+    // Send synthesis progress to webview
+    const avgMs = chunkTimings.reduce((a, b) => a + b, 0) / chunkTimings.length;
+    const remainingChunks = textChunks.length - (i + 1);
+    const remainingMs = Math.round(avgMs * remainingChunks);
+
+    panel.postMessage({
+      type: "synthProgress",
+      current: i + 1,
+      total: textChunks.length,
+      avgMs: Math.round(avgMs),
+      remainingMs,
+    });
+
+    // Start playback once we have enough chunks buffered
+    const threshold = Math.min(SYNTHESIS_BUFFER_THRESHOLD, textChunks.length);
+    if (!playbackStarted && i + 1 >= threshold) {
+      playbackStarted = true;
+      playChunk(panel, 0);
+    }
+
+    // If playback is waiting for this chunk, play it now
+    if (pendingPlayback !== undefined && pendingPlayback === i) {
+      playChunk(panel, pendingPlayback);
+      pendingPlayback = undefined;
+    }
+  }
+
+  if (isReading) {
+    panel.postMessage({ type: "synthComplete" });
   }
 }
 
-async function synthesizeChunk(
-  client: KokoroClient,
-  chunk: TextChunk,
-  chunkIndex: number,
-): Promise<SynthesizedChunk> {
-  const response = await client.synthesize(chunk.text);
+function playChunk(panel: PlayerPanel, index: number) {
+  const chunk = synthesizedChunks[index];
+  if (!chunk) return;
 
-  // Compute the time offset: sum of all previous chunks' audio durations.
-  // We don't have exact durations, but each chunk's words use times relative
-  // to 0, so for highlighting purposes within a chunk, timeOffset = 0.
-  // Cross-chunk absolute times aren't needed since we reset per chunk.
-  const mappedWords = mapWordsToSource(response.timestamps, chunk, 0);
+  currentPlayingChunk = index;
 
-  return {
-    audioBase64: response.audio,
-    mappedWords,
-    index: chunkIndex,
-  };
+  panel.postMessage({
+    type: "loadAudio",
+    audioBase64: chunk.audioBase64,
+    chunkIndex: index,
+    totalChunks: textChunks.length,
+  });
+
+  panel.postMessage({
+    type: "setTimestamps",
+    timestamps: chunk.mappedWords.map((w) => ({
+      word: w.word,
+      start_time: w.startTime,
+      end_time: w.endTime,
+    })),
+  });
 }
 
-async function playNextChunk(client: KokoroClient, panel: PlayerPanel) {
+function onChunkEnded(panel: PlayerPanel) {
   if (!isReading) return;
 
   const nextIndex = currentPlayingChunk + 1;
 
   if (nextIndex >= textChunks.length) {
-    // All chunks played
     if (statusBarItem) {
       statusBarItem.text = "$(megaphone) Finished";
     }
-    // Small delay before cleanup so the user sees "Finished"
     setTimeout(() => stopReading(), 1500);
     return;
   }
 
-  // Use pre-fetched chunk if available
-  if (prefetchPromise) {
-    try {
-      const prefetched = await prefetchPromise;
-      prefetchPromise = undefined;
-
-      if (!isReading) return;
-
-      if (prefetched) {
-        synthesizedChunks[nextIndex] = prefetched;
-        currentPlayingChunk = nextIndex;
-
-        panel.postMessage({
-          type: "loadAudio",
-          audioBase64: prefetched.audioBase64,
-          chunkIndex: nextIndex,
-          totalChunks: textChunks.length,
-        });
-
-        panel.postMessage({
-          type: "setTimestamps",
-          timestamps: prefetched.mappedWords.map((w) => ({
-            word: w.word,
-            start_time: w.startTime,
-            end_time: w.endTime,
-          })),
-        });
-
-        // Pre-fetch the one after
-        if (nextIndex + 1 < textChunks.length) {
-          prefetchPromise = synthesizeChunk(client, textChunks[nextIndex + 1], nextIndex + 1).catch(
-            () => null,
-          );
-        }
-
-        return;
-      }
-    } catch {
-      // Pre-fetch failed, fall through to synthesize fresh
-    }
+  if (synthesizedChunks[nextIndex]) {
+    // Next chunk is ready — play immediately
+    playChunk(panel, nextIndex);
+  } else {
+    // Synthesis hasn't caught up — wait
+    pendingPlayback = nextIndex;
+    panel.postMessage({ type: "loading", message: "Buffering..." });
   }
-
-  // No pre-fetched chunk available — synthesize now
-  await synthesizeAndPlay(client, panel, nextIndex);
 }
 
 // ---------------------------------------------------------------------------
@@ -359,7 +347,7 @@ async function playNextChunk(client: KokoroClient, panel: PlayerPanel) {
 
 function stopReading() {
   isReading = false;
-  prefetchPromise = undefined;
+  pendingPlayback = undefined;
 
   // Clear decorations
   if (highlighter && activeEditor) {

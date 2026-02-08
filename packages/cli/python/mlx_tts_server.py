@@ -2,7 +2,7 @@
 Thin FastAPI wrapper around mlx-audio's Kokoro TTS pipeline.
 
 Exposes the same /dev/captioned_speech endpoint as Kokoro-FastAPI,
-returning base64-encoded MP3 audio with word-level timestamps.
+returning base64-encoded WAV audio with word-level timestamps.
 
 Usage:
     uvicorn mlx_tts_server:app --host 127.0.0.1 --port 8880
@@ -20,20 +20,17 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-# Lazy-load the pipeline on first request to speed up server startup
-_pipeline = None
-_tokenizer = None
+# Lazy-load the model on first request to speed up server startup
+_model = None
 
 
-def get_pipeline():
-    global _pipeline, _tokenizer
-    if _pipeline is None:
-        from mlx_audio.tts.generate import generate_audio
+def get_model():
+    global _model
+    if _model is None:
         from mlx_audio.tts.utils import load_model
 
-        _pipeline = load_model("prince-canuma/Kokoro-82M")
-        _tokenizer = None  # tokenizer loaded inside generate_audio
-    return _pipeline
+        _model = load_model("mlx-community/Kokoro-82M-bf16")
+    return _model
 
 
 class CaptionedSpeechRequest(BaseModel):
@@ -58,60 +55,36 @@ async def models():
 @app.post("/dev/captioned_speech")
 async def captioned_speech(req: CaptionedSpeechRequest):
     try:
-        from mlx_audio.tts.generate import generate_audio
+        model = get_model()
 
-        # Generate audio with timestamps
-        result = generate_audio(
+        # model.generate() is a generator yielding GenerationResult objects
+        # Each result has .audio (mx.array), .sample_rate (int), etc.
+        audio_segments = []
+        sample_rate = 24000
+
+        for result in model.generate(
             text=req.input,
-            model_name="prince-canuma/Kokoro-82M",
             voice=req.voice,
             speed=req.speed,
-        )
+            lang_code="a",
+        ):
+            audio_segments.append(np.array(result.audio))
+            sample_rate = result.sample_rate
 
-        # result is a tuple: (audio_array, sample_rate)
-        # or a generator for streaming — we need non-streaming
-        if hasattr(result, "__iter__") and not isinstance(result, (np.ndarray, tuple)):
-            # Collect from generator
-            audio_segments = list(result)
-            if len(audio_segments) == 0:
-                raise HTTPException(status_code=500, detail="No audio generated")
-            # Each segment is (audio_array, sample_rate) or similar
-            audio_array = (
-                audio_segments[0][0]
-                if isinstance(audio_segments[0], tuple)
-                else audio_segments[0]
-            )
-            sample_rate = (
-                audio_segments[0][1]
-                if isinstance(audio_segments[0], tuple)
-                else 24000
-            )
-        elif isinstance(result, tuple):
-            audio_array, sample_rate = result
-        else:
-            audio_array = result
-            sample_rate = 24000
+        if not audio_segments:
+            raise HTTPException(status_code=500, detail="No audio generated")
 
-        # Encode audio as WAV (soundfile doesn't support MP3 natively)
+        # Concatenate all segments into a single audio array
+        audio_array = np.concatenate(audio_segments)
+
+        # Encode audio as WAV
         buf = io.BytesIO()
         sf.write(buf, audio_array, sample_rate, format="WAV")
         audio_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-        # Extract word-level timestamps from Kokoro's duration predictor.
-        #
-        # NOTE: This is the critical part that requires investigation of
-        # mlx-audio's internal API. The Kokoro model produces `pred_dur`
-        # (predicted durations per phoneme), from which we can compute:
-        #   start_ts = left / 80.0
-        #   end_ts = (left + 2 * token_dur) / 80.0
-        #
-        # If mlx-audio doesn't expose pred_dur directly, we'll need to:
-        # 1. Fork or patch the generate_audio function to return durations
-        # 2. OR use a simple word-count-based estimation as a fallback
-        #
-        # For now, we use estimated timestamps based on audio duration and
-        # word count. This will be replaced with real duration predictor
-        # timestamps once we verify the mlx-audio internal API.
+        # Estimate word-level timestamps based on audio duration and word count.
+        # A future improvement could extract real timestamps from Kokoro's
+        # duration predictor (pred_dur) for more accurate word alignment.
         timestamps = _estimate_word_timestamps(
             req.input, len(audio_array) / sample_rate
         )
@@ -137,7 +110,6 @@ def _estimate_word_timestamps(text: str, total_duration: float) -> list[dict]:
     if not words:
         return []
 
-    # Distribute time proportional to character length
     total_chars = sum(len(w) for w in words)
     if total_chars == 0:
         return []

@@ -19,18 +19,15 @@ const DEFAULT_MODEL = "kokoro";
 export class KokoroClient {
   private readonly serverUrl: string;
   private readonly voice: string;
-  private readonly speed: number;
 
   /**
    * @param serverUrl  Base URL of the Kokoro-FastAPI server, e.g. `http://localhost:8880`.
    *                   Trailing slashes are stripped automatically.
    * @param voice      Voice identifier to use for synthesis (e.g. `af_heart`).
-   * @param speed      Playback speed multiplier (1.0 = normal).
    */
-  constructor(serverUrl: string, voice: string, speed: number) {
+  constructor(serverUrl: string, voice: string) {
     this.serverUrl = serverUrl.replace(/\/+$/, "");
     this.voice = voice;
-    this.speed = speed;
   }
 
   /**
@@ -66,7 +63,7 @@ export class KokoroClient {
       model: DEFAULT_MODEL,
       input: text,
       voice: this.voice,
-      speed: this.speed,
+      speed: 1,
       response_format: "mp3",
       stream: false,
     };

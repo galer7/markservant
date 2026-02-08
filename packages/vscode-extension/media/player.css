@@ -152,6 +152,63 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Speed slider                                                       */
+/* ------------------------------------------------------------------ */
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 200px;
+}
+
+.speed-label {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  min-width: 2.5em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#speed-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--vscode-panel-border, rgba(128, 128, 128, 0.3));
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+#speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  cursor: pointer;
+  border: none;
+}
+
+#speed-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  cursor: pointer;
+  border: none;
+}
+
+#speed-slider:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007acc);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Responsive tweaks                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -179,6 +236,11 @@ body {
 
   #stop-btn .codicon {
     font-size: 14px;
+  }
+
+  .speed-control {
+    max-width: 160px;
+    gap: 6px;
   }
 }
 

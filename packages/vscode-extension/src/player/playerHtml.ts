@@ -138,6 +138,37 @@ export function getPlayerHtml(
       white-space: nowrap;
     }
 
+    /* Synthesis progress bar */
+    .synth-progress {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .synth-progress-bar-container {
+      width: 100%;
+      height: 4px;
+      background: var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2));
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .synth-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--player-button-bg);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .synth-progress-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85em;
+      color: var(--player-muted-fg);
+    }
+
     /* Button row */
     .controls {
       display: flex;
@@ -209,6 +240,60 @@ export function getPlayerHtml(
     #audio-player {
       display: none;
     }
+
+    /* Speed control slider */
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 200px;
+    }
+
+    .speed-label {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: var(--player-muted-fg);
+      min-width: 2.5em;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    #speed-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: var(--player-border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--player-button-bg);
+      cursor: pointer;
+      border: none;
+    }
+
+    #speed-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--player-button-bg);
+      cursor: pointer;
+      border: none;
+    }
+
+    #speed-slider:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
   </style>
 </head>
 <body>
@@ -217,6 +302,16 @@ export function getPlayerHtml(
     <audio id="audio-player" preload="auto"></audio>
 
     <div id="status" role="status" aria-live="polite">Loading...</div>
+
+    <div id="synth-progress" class="synth-progress" style="display:none;" aria-label="Synthesis progress">
+      <div class="synth-progress-bar-container">
+        <div id="synth-progress-fill" class="synth-progress-fill"></div>
+      </div>
+      <div class="synth-progress-details">
+        <span id="synth-progress-label">Synthesizing 0 / 0</span>
+        <span id="synth-estimate"></span>
+      </div>
+    </div>
 
     <div class="progress" aria-label="Playback progress">
       <span>Chunk</span>
@@ -253,6 +348,11 @@ export function getPlayerHtml(
           <rect x="14" y="5" width="4" height="14" rx="1" />
         </svg>
       </button>
+    </div>
+
+    <div class="speed-control">
+      <input type="range" id="speed-slider" min="1" max="4" step="0.25" value="1" aria-label="Playback speed">
+      <span id="speed-value" class="speed-label">1x</span>
     </div>
 
   </div>

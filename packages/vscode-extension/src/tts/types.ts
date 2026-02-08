@@ -85,6 +85,7 @@ export type WebviewToExtensionMessage =
   | { type: "playbackStarted" }
   | { type: "playbackPaused" }
   | { type: "playbackStopped" }
+  | { type: "playbackRateChanged"; rate: number }
   | { type: "ready" }
   | { type: "error"; message: string };
 
@@ -95,4 +96,7 @@ export type ExtensionToWebviewMessage =
   | { type: "play" }
   | { type: "pause" }
   | { type: "stop" }
-  | { type: "setTimestamps"; timestamps: WordTimestamp[] };
+  | { type: "setTimestamps"; timestamps: WordTimestamp[] }
+  | { type: "setPlaybackRate"; rate: number }
+  | { type: "synthProgress"; current: number; total: number; avgMs: number; remainingMs: number }
+  | { type: "synthComplete" };
